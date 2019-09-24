@@ -591,7 +591,7 @@ function getDistancesAddressesMatrix(lul_device,origins,destinations,distancemod
 	local durations={}
 	local orgs = {}
 	local dests = {}
-  if distancemode == "bicycling" then distancemode = "transit"
+  if distancemode == "bicycling" then distancemode = "transit" end
 	for key,value in pairs(origins) do orgs[#orgs+1]=(value.lat..","..value.lon) end
 	for key,value in pairs(destinations) do dests[#dests+1]=(value.lat..","..value.lon) end
 	local url = string.format(
@@ -614,22 +614,13 @@ function getDistancesAddressesMatrix(lul_device,origins,destinations,distancemod
 		else
 			local res,obj = xpcall( function () local obj = json.decode(content) return obj end , log )
 			if (res==true) then
-				if (obj.authenticationResultCode=="ValidCredentials") then  -- Bing success
-					addresses = obj["origin_addresses"]
-					-- Each row corresponds to an origin, and each element within that row corresponds to a pairing of the origin with a destination value.
-					-- nth device is to be mapped from its position ( origin ) to its destination ( the nth destinatoin )
-					for key,value in pairs(obj["rows"]) do
-						if (value["elements"][key]["status"] =="OK") then
-							distances[key]=value["elements"][key]["distance"]["value"]/1000	-- bing provides it in meters
-							durations[key]=value["elements"][key]["duration"]["value"]	-- bing provides it in seconds
-						else
-							UserMessage("Bing could not calculate a route")
-							-- TODO bing returned something like
-							-- "elements": [
-								-- {
-									-- "status": "ZERO_RESULTS"
-								-- }
-							-- ]
+				if (obj.statusDescription=="OK") then  -- Bing success
+					local results = obj.resourceSets[1].resources[1].results
+					for k,v in pairs (results) do
+						if (v.destinationIndex==0) then
+							distances[#distances+1] = v.travelDistance
+							durations[#durations+1] = v.travelDuration/1000
+							addresses[#addresses+1] = "N/A in non direct mode"
 						end
 					end
 				else
