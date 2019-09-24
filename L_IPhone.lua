@@ -619,7 +619,7 @@ function getDistancesAddressesMatrix(lul_device,origins,destinations,distancemod
 					for k,v in pairs (results) do
 						if (v.destinationIndex==0) then
 							distances[#distances+1] = v.travelDistance
-							durations[#durations+1] = v.travelDuration/1000
+							durations[#durations+1] = v.travelDuration
 							addresses[#addresses+1] = "N/A in non direct mode"
 						end
 					end
