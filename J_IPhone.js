@@ -221,16 +221,16 @@ function showChildren(home, checked )
 // this method is called automatically when the script is
 // actually finished to be loaded
 //-------------------------------------------------------------
-function GetMap() {
+function handleApiReady() {
 	// find context information
-	var deviceID = 6 
+	var deviceID = 6;
 	var home = 	jQuery( "#map_canvas" ).data( "home");
-  var key = getGoogleMapKey(deviceID)
+  var key = getGoogleMapKey(deviceID);
 	//NOTE to myself: window.clearInterval(interval);   can be used later on if needed
 
-	if (home.interval==null) {
-		var base = new google.maps.LatLng(home.homelat,home.homelong)//(-34.397, 150.644);
-		var phone = new google.maps.LatLng(home.curlat,home.curlong)//(-34.397, 150.644);
+	if (home.interval == null) {
+		var base = new google.maps.LatLng(home.homelat,home.homelong);//(-34.397, 150.644);
+		var phone = new google.maps.LatLng(home.curlat,home.curlong);//(-34.397, 150.644);
 		var sessionKey;
 		home.map = new Microsoft.Maps.Map('#map_canvas', {
 		    credentials: key,
@@ -257,7 +257,7 @@ function GetMap() {
 //			icon: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png',
 //			title:"Base"
 //		});
-		map.getCredentials(function (c) {
+		home.map.getCredentials(function (c) {
     	sessionKey = c;
 	    });
 		set_device_state(deviceID, iphone_Svs, "sessionkey", sessionKey);
@@ -270,19 +270,19 @@ function GetMap() {
 
 //		google.maps.event.addListener(basemarker, 'dragend', function(evt) {
 			// find context
-			var home = 	jQuery( "#map_canvas" ).data( "home");
+//			var home = 	jQuery( "#map_canvas" ).data( "home");
 
 			// not strictly needed but for rigor
-			home.homelat=evt.latLng.lat()
-			home.homelong=evt.latLng.lng()
+//			home.homelat=evt.latLng.lat()
+//			home.homelong=evt.latLng.lng()
 
 			// save on the device and will light up the 'save' button
-			iphone_SetFloat(home.deviceID , 'HomeLat', evt.latLng.lat());
-			iphone_SetFloat(home.deviceID , 'HomeLong', evt.latLng.lng());
+//			iphone_SetFloat(home.deviceID , 'HomeLat', evt.latLng.lat());
+//			iphone_SetFloat(home.deviceID , 'HomeLong', evt.latLng.lng());
 
 			// update context
-			jQuery( "#map_canvas" ).data( "home", home );
-		});
+//			jQuery( "#map_canvas" ).data( "home", home );
+//		});
 
 //		home.range = new google.maps.Circle({
 //			center: base,
@@ -293,28 +293,28 @@ function GetMap() {
 //			strokeColor: 'MediumBlue',
 //			strokeOpacity:0.5
 //		});
-		home.range.setVisible( jQuery( "#range" )[0].checked );
+//		home.range.setVisible( jQuery( "#range" )[0].checked );
 
 		// create polling map and associated circles
-		createPollingMap(home,base);
-		createChildrenMarkers(home,base);
+//		createPollingMap(home,base);
+//		createChildrenMarkers(home,base);
 
-		home.interval = window.setInterval(function() {
+//		home.interval = window.setInterval(function() {
 			// regular refresh, use dynamic mode in get_device_state
-			var canvas = jQuery( "#map_canvas" );
-			if (canvas.length>0) {
-				var home = 	jQuery( "#map_canvas" ).data( "home");
-				var deviceID = home.deviceID;
-				var curlat = get_device_state(deviceID,  iphone_Svs, 'CurLat',1);
-				var curlong= get_device_state(deviceID,  iphone_Svs, 'CurLong',1);
-				var pos = new google.maps.LatLng(curlat, curlong);
+//			var canvas = jQuery( "#map_canvas" );
+//			if (canvas.length>0) {
+//				var home = 	jQuery( "#map_canvas" ).data( "home");
+//				var deviceID = home.deviceID;
+//				var curlat = get_device_state(deviceID,  iphone_Svs, 'CurLat',1);
+//				var curlong= get_device_state(deviceID,  iphone_Svs, 'CurLong',1);
+//				var pos = new google.maps.LatLng(curlat, curlong);
 
 				//home.range.setVisible( jQuery( "#range" ).checked );
 //				phonemarker.setPosition(pos);
-				}
-			},
+//				}
+//			},
 //			googleMap_refresh
-		);
+//		);
 
 		// refresh context object
 		jQuery( "#map_canvas" ).data( "home", home );
@@ -332,7 +332,7 @@ function appendBootstrap(deviceID) {
 		var key = getGoogleMapKey(deviceID)
 		var script = document.createElement("script");
 		script.type = "text/javascript";
-		script.src = "//www.bing.com/api/maps/mapcontrol?callback=GetMap";
+		script.src = "//www.bing.com/api/maps/mapcontrol?callback=handleApiReady";
 		if (key!="none") {
 			script.src += "&key="+key
 		}
