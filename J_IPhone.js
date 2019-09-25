@@ -19,10 +19,10 @@ var IPhoneLocator_Utils = (function() {
 			var replacement = new RegExp('\\{' + (i-1) + '\\}', 'g');	// regex requires \ and assignment into string requires \\,
 			// if ($.type(arguments[i]) === "string")
 				// arguments[i] = arguments[i].replace(/\$/g,'$');
-			content = content.replace(replacement, arguments[i]);  
+			content = content.replace(replacement, arguments[i]);
 	   }
 	   return content;
-	};	
+	};
 	function rgb2hex(r, g, b) {
 		return "#" + (65536 * r + 256 * g + b).toString(16);
 	};
@@ -49,17 +49,17 @@ var IPhoneLocator_Utils = (function() {
 	//-------------------------------------------------------------
 	// Utilities for searching Vera devices
 	//-------------------------------------------------------------
-	function findDeviceIdx(deviceID) 
+	function findDeviceIdx(deviceID)
 	{
 		//jsonp.ud.devices
 		for(var i=0; i<jsonp.ud.devices.length; i++) {
-			if (jsonp.ud.devices[i].id == deviceID) 
+			if (jsonp.ud.devices[i].id == deviceID)
 				return i;
 		}
 		return null;
 	};
 
-	function findRootDeviceIdx(deviceID) 
+	function findRootDeviceIdx(deviceID)
 	{
 		var idx = IPhoneLocator_Utils.findDeviceIdx(deviceID);
 		while (jsonp.ud.devices[idx].id_parent != 0)
@@ -74,7 +74,7 @@ var IPhoneLocator_Utils = (function() {
 		var idx = IPhoneLocator_Utils.findRootDeviceIdx(deviceID) ;
 		return jsonp.ud.devices[idx].id;
 	};
-	
+
 	return {
 		isFunction:isFunction,
 		rgb2hex:rgb2hex,
@@ -155,7 +155,7 @@ function getChildrenInfoMap(deviceID)
 	for(var i=0; i<jsonp.ud.devices.length; i++) {
 		// add all children of that root
         if ((jsonp.ud.devices[i].id_parent == root) && (thisid!=i))
-		{			
+		{
 			var childid = jsonp.ud.devices[i].id;
 			map.push({
 				lat: get_device_state(childid,  iphone_Svs, 'CurLat',1),
@@ -215,85 +215,91 @@ function showChildren(home, checked )
 		value.setVisible( checked );
 	});
 }
-	
+
 //-------------------------------------------------------------
 // Boot Strap CB code to dynamically load & create google map
-// this method is called automatically when the script is 
+// this method is called automatically when the script is
 // actually finished to be loaded
-//-------------------------------------------------------------	
-function handleApiReady() {
+//-------------------------------------------------------------
+function GetMap() {
 	// find context information
+	var deviceID = 6 
 	var home = 	jQuery( "#map_canvas" ).data( "home");
-	
+  var key = getGoogleMapKey(deviceID)
 	//NOTE to myself: window.clearInterval(interval);   can be used later on if needed
-	
+
 	if (home.interval==null) {
 		var base = new google.maps.LatLng(home.homelat,home.homelong)//(-34.397, 150.644);
 		var phone = new google.maps.LatLng(home.curlat,home.curlong)//(-34.397, 150.644);
+		var sessionKey;
+		home.map = new Microsoft.Maps.Map('#map_canvas', {
+		    credentials: key,
+		    center: new Microsoft.Maps.Location(home.homelat,home.homelong),
+		    mapTypeId: Microsoft.Maps.MapTypeId.aerial,
+		    zoom: 10
+		});
 
-		var myOptions = {
-			zoom: 12,
-			center: base,
+//	var myOptions = {
+//			zoom: 12,
+//			center: base,
 			// disableDefaultUI: true,
-			panControl: true,
-			zoomControl: true,
-			mapTypeControl: true,
+//			panControl: true,
+//			zoomControl: true,
+//			mapTypeControl: true,
 			// mapTypeId: google.maps.MapTypeId.ROADMAP
-		}
-		
-		home.map = new google.maps.Map(document.getElementById("map_canvas"), myOptions);
-		// http://maps.google.com/mapfiles/ms/icons/blue-dot.png
-		// http://maps.google.com/mapfiles/ms/icons/red-dot.png
-		// http://maps.google.com/mapfiles/ms/icons/purple-dot.png
-		// http://maps.google.com/mapfiles/ms/icons/yellow-dot.png
-		// http://maps.google.com/mapfiles/ms/icons/green-dot.png
-		var basemarker = new google.maps.Marker({
-			position: base,
-			map: home.map,
-			draggable:true,
-			icon: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png',
-			title:"Base"
-		});
-		
-		var phonemarker = new google.maps.Marker({
-			position: phone,
-			map: home.map,
-			icon: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
-			title:home.phonename
-		});
-		
-		google.maps.event.addListener(basemarker, 'dragend', function(evt) {
-			// find context 
+//		}
+
+//		home.map = new Microsoft.Maps.Map(document.getElementById("map_canvas"));
+//		var basemarker = new google.maps.Marker({
+//			position: base,
+//			map: home.map,
+//			draggable:true,
+//			icon: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png',
+//			title:"Base"
+//		});
+		map.getCredentials(function (c) {
+    	sessionKey = c;
+	    });
+		set_device_state(deviceID, iphone_Svs, "sessionkey", sessionKey);
+//		var phonemarker = new google.maps.Marker({
+//			position: phone,
+//			map: home.map,
+//			icon: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
+//			title:home.phonename
+//		});
+
+//		google.maps.event.addListener(basemarker, 'dragend', function(evt) {
+			// find context
 			var home = 	jQuery( "#map_canvas" ).data( "home");
-			
+
 			// not strictly needed but for rigor
 			home.homelat=evt.latLng.lat()
 			home.homelong=evt.latLng.lng()
-			
+
 			// save on the device and will light up the 'save' button
 			iphone_SetFloat(home.deviceID , 'HomeLat', evt.latLng.lat());
 			iphone_SetFloat(home.deviceID , 'HomeLong', evt.latLng.lng());
-			
+
 			// update context
 			jQuery( "#map_canvas" ).data( "home", home );
 		});
 
-		home.range = new google.maps.Circle({
-			center: base,
-			fillColor: 'LightSkyBlue',
-			fillOpacity: 0.2,
-			map: home.map,
-			radius:home.range*1000,
-			strokeColor: 'MediumBlue',
-			strokeOpacity:0.5
-		});
+//		home.range = new google.maps.Circle({
+//			center: base,
+//			fillColor: 'LightSkyBlue',
+//			fillOpacity: 0.2,
+//			map: home.map,
+//			radius:home.range*1000,
+//			strokeColor: 'MediumBlue',
+//			strokeOpacity:0.5
+//		});
 		home.range.setVisible( jQuery( "#range" )[0].checked );
 
 		// create polling map and associated circles
 		createPollingMap(home,base);
 		createChildrenMarkers(home,base);
-		
-		home.interval = window.setInterval(function() { 
+
+		home.interval = window.setInterval(function() {
 			// regular refresh, use dynamic mode in get_device_state
 			var canvas = jQuery( "#map_canvas" );
 			if (canvas.length>0) {
@@ -302,14 +308,14 @@ function handleApiReady() {
 				var curlat = get_device_state(deviceID,  iphone_Svs, 'CurLat',1);
 				var curlong= get_device_state(deviceID,  iphone_Svs, 'CurLong',1);
 				var pos = new google.maps.LatLng(curlat, curlong);
-				
+
 				//home.range.setVisible( jQuery( "#range" ).checked );
-				phonemarker.setPosition(pos);
+//				phonemarker.setPosition(pos);
 				}
-			}, 
-			googleMap_refresh
+			},
+//			googleMap_refresh
 		);
-		
+
 		// refresh context object
 		jQuery( "#map_canvas" ).data( "home", home );
 	}
@@ -317,16 +323,16 @@ function handleApiReady() {
 
 //-------------------------------------------------------------
 // Trigger the loading of the google map code if needed
-//-------------------------------------------------------------	
+//-------------------------------------------------------------
 function appendBootstrap(deviceID) {
-	if(typeof google === 'object' && typeof google.maps === 'object'){
+	if(typeof Microsoft === 'object' && typeof Microsoft.Maps === 'object'){
 		setTimeout("handleApiReady()", 500);
 	}
 	else {
 		var key = getGoogleMapKey(deviceID)
 		var script = document.createElement("script");
 		script.type = "text/javascript";
-		script.src = "//maps.google.com/maps/api/js?callback=handleApiReady";
+		script.src = "//www.bing.com/api/maps/mapcontrol?callback=GetMap";
 		if (key!="none") {
 			script.src += "&key="+key
 		}
@@ -338,7 +344,7 @@ function appendBootstrap(deviceID) {
 // Device TAB : Map
 //		width: 520px;\
 //		height: 337px;\
-//-------------------------------------------------------------	
+//-------------------------------------------------------------
 function iphone_Map(deviceID) {
 	// first determine if it is a child device or not
 	var device = IPhoneLocator_Utils.findDeviceIdx(deviceID);
@@ -395,9 +401,9 @@ function iphone_Map(deviceID) {
 	jQuery( "#map_canvas" ).data( "home", {
 		deviceID: deviceID,
 		phonename: name,
-		homelat: homelat, 
+		homelat: homelat,
 		homelong: homelong,
-		curlat: curlat, 
+		curlat: curlat,
 		curlong: curlong,
 		interval: null,
 		range: range,
@@ -411,12 +417,12 @@ function iphone_Map(deviceID) {
 		var home = 	jQuery( "#map_canvas" ).data( "home");
 		home.range.setVisible( this.checked );
 	});
-	
+
 	jQuery( "#pollmap" ).change( function() {
 		var home = 	jQuery( "#map_canvas" ).data( "home");
 		setPollingMapVisibility(home, this.checked );
 	});
-	
+
 	jQuery( "#showchild" ).change( function() {
 		var home = 	jQuery( "#map_canvas" ).data( "home");
 		showChildren(home, this.checked );
@@ -429,9 +435,9 @@ function iphone_Map(deviceID) {
 	jQuery( "#center_phone" ).click( function() {
 		centerToLocation(curlat,curlong);
 	});
-	
+
 	// http://maps.google.com/?q=MY%20LOCATION@lat,long
-	// 
+	//
 	jQuery( "#full_screen" ).click( function() {
 		var mapurl = get_device_state(deviceID,  iphone_Svs, 'MapUrl',1);
 		window.open(mapurl,"_blank");
@@ -440,7 +446,7 @@ function iphone_Map(deviceID) {
 
 //-------------------------------------------------------------
 // UI interactivity in the Device TAB : Settings
-//-------------------------------------------------------------	
+//-------------------------------------------------------------
 function getAppleNames( deviceID ) {
 	var root = IPhoneLocator_Utils.findRootDevice(deviceID);
 	var names = get_device_state(root,  iphone_Svs, 'ICloudDevices',1);
@@ -451,11 +457,11 @@ function initializeAppleNames( deviceID ) {
 	// first clean up all options
 	jQuery('#iphone_NameSelect').removeAttr('disabled');
 	jQuery( "#iphone_NameSelect option" ).remove()
-	
+
 	// then get the new ones
 	var applenames=getAppleNames( deviceID  );
 	jQuery.each( applenames, function( index, value ) {
-		var option = new Option(value, value); 
+		var option = new Option(value, value);
 		jQuery('#iphone_NameSelect').append(option);
 	});
 
@@ -470,7 +476,7 @@ function addOptionToTarget(value,bEscape)
 	if (value!='') {
 		if (bEscape!==false)
 			value = IPhoneLocator_Utils.escapeLuaPattern(value);
-		var option = new Option(value, value); 
+		var option = new Option(value, value);
 		jQuery('#iphone_NameTarget').append(option);
 	}
 }
@@ -482,17 +488,17 @@ function saveTargetNames(deviceID)
 	jQuery( "#iphone_NameTarget option" ).each(function() {
 		names.push( jQuery(this).text() );
 	});
-	
+
 	//potential weakness : we should add ^ and $ to beg and end of strings
 	iphone_Set(deviceID, "IPhoneName", names.join());	// native js join()
-	
+
 	// since this needs a luup refresh anyhow, force it so we get the red save button
 	// set_device_state (deviceID, iphone_Svs, "IPhoneName", names.join())
 }
 
 function updateForAuto(auto) {
 	if (auto == "1") {
-		// if no map then Polling base is valid , if map is specified it can be disabled, 
+		// if no map then Polling base is valid , if map is specified it can be disabled,
 		// same for Polling Divider
 		var mapspecified = (jQuery( ".mytbl #iphone_PollingMap ")[0].value.length>0);
 		jQuery( ".mytbl #iphone_periodTxt , .mytbl #iphone_dividerTxt")
@@ -501,14 +507,14 @@ function updateForAuto(auto) {
 			.prop("disabled", (mapspecified ? true : false))
 			//.attr('disabled', (mapspecified ? 'disabled' : ''))
 			.css('background', (mapspecified ?'#cccccc':'#ffffff'));
-		
+
 		// in auto mode, Map is allways editable
 		jQuery( ".mytbl #iphone_mapTxt")
 			.css('text-decoration', '');
 		jQuery( ".mytbl #iphone_PollingMap")
 			.prop("disabled", false)
 			.css('background', '#ffffff');
-	} else 
+	} else
 	{
 		// in non auto mode, Polling Divider and Polling Map are not used
 		jQuery( ".mytbl #iphone_periodTxt")
@@ -526,7 +532,7 @@ function updateForAuto(auto) {
 
 //-------------------------------------------------------------
 // Management of the Save button
-//-------------------------------------------------------------	
+//-------------------------------------------------------------
 function showStatus(text, error)
 {
 	var e = jQuery("#status_display");
@@ -544,7 +550,7 @@ function clearStatus() {
 
 //-------------------------------------------------------------
 // Management of the TABS & Pannel
-//-------------------------------------------------------------	
+//-------------------------------------------------------------
 function clickPanelTab( o )	// must be called as event, this is the clicked "LI"
 {
 	jQuery( "li.tabs" ).removeClass("selected");
@@ -563,7 +569,7 @@ function showPanel( )	// updates panel based on selected "LI"
 
 //-------------------------------------------------------------
 // Device TAB : Settings
-//-------------------------------------------------------------	
+//-------------------------------------------------------------
 function iphone_Settings(deviceID) {
 	// fix for UI5 where .prop does not exist
 	if (jQuery.fn.prop == undefined)
@@ -602,7 +608,7 @@ function iphone_Settings(deviceID) {
 		panelmargin = "0px";
 	}
 	var navbar = "<ul class='tabs'> " +
-	"<li id='tabs1' class='tabs selected'>Home</li>" + 
+	"<li id='tabs1' class='tabs selected'>Home</li>" +
 	((root==true) ?  "<li id='tabs2' class='tabs'>iCloud</li>" + "<li id='tabs3' class='tabs'>Polling</li>"+ "<li id='tabs4' class='tabs'>Donate</li>" +"</ul>" : '' );
 
 	var unitselect = ' \
@@ -611,7 +617,7 @@ function iphone_Settings(deviceID) {
     <option value="Mm" '+((unit=="Mm") ? 'selected' : '' ) +'>Statute Mile</option>	\
     <option value="Nm" '+((unit=="Nm") ? 'selected' : '' ) +'>Nautical Mile</option>	\
 	</select>';
-	
+
 	var distancemodeselect = ' \
 	<select id="dmselect" onchange="iphone_SetDM(' + deviceID + ', \'DistanceMode\', this.value);"> \
 	<option value="direct" '+((distancemode=="direct") ? 'selected' : '' ) +'>direct</option>	\
@@ -619,7 +625,7 @@ function iphone_Settings(deviceID) {
     <option value="walking" '+((distancemode=="walking") ? 'selected' : '' ) +'>walking</option>	\
     <option value="bicycling" '+((distancemode=="bicycling") ? 'selected' : '' ) +'>bicycling</option>	\
 	</select>';
-	
+
 	var htmlnameselector = '<table> \
 	<tr><td><select class="namebox" id="iphone_NameSelect" multiple></select></td><td><button id="button_copycloudname" type="button">==></button><button  id="refresh_icloud">Refresh</button></td><td><select class="namebox" id="iphone_NameTarget" multiple></select>	\
 	<div class="floatcol">	\
@@ -630,8 +636,8 @@ function iphone_Settings(deviceID) {
 	</td></tr> \
 	<tr><td>Pattern:<input type="text" id="iphone_Pattern" size=15 value=""></td><td><button id="button_copypattern" type="button">==></button></td><td>(Comma separated list of iCloud Device name or <a target="_blank" href="http://www.lua.org/pil/20.2.html">Lua patterns</a>)</td></tr>	\
 	</table>'
-	
-	var htmliCloud = 
+
+	var htmliCloud =
 		' <tr><td>iCloud Email:</td><td><input  type="text" id="iphone_Email" size=23 value="' +  email + '" onchange="iphone_SetEmail(' + deviceID + ', \'Email\', this.value);"></td><td>iCloud Password:<input type="password" id="iphone_Password" size=15 value="' +  password + '" onchange="iphone_SetPassword(' + deviceID + ', this.value);">Show:<input type="checkbox" name="showpwd" onclick="handleShowPwdCheckbox(this);" value="showpwd"></td></tr>'+
 		'<tr><td>IPhone Name:</td><td colspan="2">'+htmlnameselector+'</td></tr>';
 
@@ -648,7 +654,7 @@ function iphone_Settings(deviceID) {
         ' <tr><td>Participates in House Mode:</td><td><input type="checkbox" name="iphone_housemodeactor" onclick="handleCheckbox(' + deviceID + ', \'HouseModeActor\', this);" value="iphone_housemodeactor" '+(houseModeActor=="1"?'checked':'')+'></td><td>if this device participates in the HouseMode calculation.</td></tr>' +
         ' <tr><td>Addr Format:</td><td><input type="text" id="iphone_AddrFormat" size=23 value="' +  addrFormat+ '" onchange="iphone_SetAddr(' + deviceID + ', \'AddrFormat\', this.value);"></td><td>(empty or 0 for privacy. or CSV list of indexes or \'~\' followed by  template variables between { } like "~{street_number} {route},{postal_code} {locality}, {country}". See:<a target="_blank" href="https://developers.google.com/maps/documentation/geocoding/?hl=fr#Types">variables</a>. <br><strong>WARNING</strong>:\'~\' only supported if your distance mode in Polling Tab is: \'direct\'.)</td></tr>';
 
-	var htmlDonate='<tr><td></td><td>For those who really like this plugin and feel like it, you can donate what you want here on Paypal. It will not buy you more support not any garantee that this can be maintained or evolve in the future but if you want to show you are happy and would like my kids to transform some of the time I steal from them into some <i>concrete</i> returns, please feel very free ( and absolutely not forced to ) to donate whatever you want.  thank you !'+ 
+	var htmlDonate='<tr><td></td><td>For those who really like this plugin and feel like it, you can donate what you want here on Paypal. It will not buy you more support not any garantee that this can be maintained or evolve in the future but if you want to show you are happy and would like my kids to transform some of the time I steal from them into some <i>concrete</i> returns, please feel very free ( and absolutely not forced to ) to donate whatever you want.  thank you !'+
 '<hr><form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">'+
 '<input type="hidden" name="cmd" value="_s-xclick">'+
 '<input type="hidden" name="encrypted" value="-----BEGIN PKCS7-----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-----END PKCS7-----">'+
@@ -659,7 +665,7 @@ function iphone_Settings(deviceID) {
 '</td></tr>';
 	// ul.tabs li.tabs { ==> background-color:#6495ED;					\
 	// ul.tabs li.tabs.selected { ==> background-color:#D3D3D3;			\
-		
+
     var style = '<style>\
 			.namebox {\
 				width:180px;\
@@ -718,7 +724,7 @@ function iphone_Settings(deviceID) {
 				padding: 0;\
 			}\
 		</style> ';
-		
+
 	var html = style+
 		'<div class="pane" id="pane"> '+ navbar +
 		'<div class="tabs" id="tabs1"> <table class="mytbl" width="100%">'+htmlHome+ '</table></div>' +
@@ -736,34 +742,34 @@ function iphone_Settings(deviceID) {
 	});
 
 	if (root) {
-		// initialize the list of possible apple names 
+		// initialize the list of possible apple names
 		initializeAppleNames(deviceID);
 
 		// and initialize the target list from the names already saved in the device
 		jQuery.each( name.split(','), function( index,value) {
 			addOptionToTarget(value,false);
 		});
-	
-		// click  handler to get pattern value and add it to target names 
+
+		// click  handler to get pattern value and add it to target names
 		jQuery("#refresh_icloud").click( function() {
 			// disable refresh button
 			jQuery("#refresh_icloud").prop("disabled", true).text("Refreshing...");
 			// first clean up all options
 			jQuery( "#iphone_NameSelect option" ).remove();
-			var option = new Option("Refresh...", "Refresh..."); 
+			var option = new Option("Refresh...", "Refresh...");
 			jQuery('#iphone_NameSelect').append(option);
 			jQuery('#iphone_NameSelect').prop("disabled", true);
 			ForceRefreshDevice(deviceID , initializeAppleNames);
 		});
-	
-		// click  handler to get pattern value and add it to target names 
+
+		// click  handler to get pattern value and add it to target names
 		jQuery( "#button_copypattern" ).click(function() {
 			var value = jQuery( "#iphone_Pattern" )[0].value;
 			addOptionToTarget(value);
 			saveTargetNames(deviceID);
 		});
 
-		// click  handler to get selected names and add it to target names 
+		// click  handler to get selected names and add it to target names
 		jQuery( "#button_copycloudname" ).click(function() {
 			jQuery( "#iphone_NameSelect option:selected" ).each(function() {
 				var text =jQuery(this).text();
@@ -787,23 +793,23 @@ function iphone_Settings(deviceID) {
 		  });
 			saveTargetNames(deviceID);
 		});
-		
+
 		jQuery( "#button_down" ).click(function() {
 		  jQuery('#iphone_NameTarget option:selected').each(function(){
 		   jQuery(this).insertAfter(jQuery(this).next());
 		  });
 			saveTargetNames(deviceID);
 		});
-	
+
 		// update UI gadgets according to the polling auto selection mode
 		updateForAuto(auto);
 	}
-	
+
 }
 
 //-------------------------------------------------------------
 // Save functions
-//-------------------------------------------------------------	
+//-------------------------------------------------------------
 function handleCheckbox(deviceID, varName, cb) {
 	return save(deviceID, varName, cb.checked?"1":"0");
 }
@@ -818,18 +824,18 @@ function iphone_Set(deviceID, varName, varVal) {
 	return save(deviceID, varName, varVal );
 }
 
-// iphone_SetPassword(deviceID,pwd) 
+// iphone_SetPassword(deviceID,pwd)
 // is special, it saves immediately using the Plugin Handler channel to pass
 // a command to the plugin
 function iphone_SetPassword(deviceID,pwd) {
     var email  = jQuery('#iphone_Email').val();	//get_device_state(deviceID,  iphone_Svs, 'Email',1);
 	var url = buildIPhoneHandlerUrl(deviceID,"SetCredentials",{email:email,pwd:pwd});
-	
+
 	// first clean up all options and block refresh button
 	jQuery('#iphone_NameSelect').removeAttr('disabled');
 	jQuery( "#iphone_NameSelect option" ).remove();
 	jQuery("#refresh_icloud").prop("disabled", true).text("Refreshing...");
-	
+
 	// execute and get the result (table of names) - synchronous
 	jQuery.ajax({
 		type: "GET",
@@ -844,7 +850,7 @@ function iphone_SetPassword(deviceID,pwd) {
 		// text result is a json encoding of array of iCloud names
 		var applenames = JSON.parse(data);
 		jQuery.each( applenames, function( index, value ) {
-			var option = new Option(value, value); 
+			var option = new Option(value, value);
 			jQuery('#iphone_NameSelect').append(option);
 		});
 	}).fail(function() {
@@ -902,7 +908,7 @@ function save(deviceID, varName, varVal, func) {
 
 //-------------------------------------------------------------
 // Pattern Matching functions
-//-------------------------------------------------------------	
+//-------------------------------------------------------------
 function goodPollMap(v)
 {
 	var reg = new RegExp('^(([0-9]+(\.[0-9]+)*:[0-9]+)+(,([0-9]+(\.[0-9]+)*:[0-9]+)+)*|_)$','i');
@@ -954,7 +960,7 @@ function goodemail(email)
 }
 
 //-------------------------------------------------------------
-// Variable saving 
+// Variable saving
 //-------------------------------------------------------------
 function saveVar(deviceID,  service, varName, varVal)
 {
@@ -1002,7 +1008,7 @@ function buildUPnPActionUrl(deviceID,service,action)
 // IPhone_Handler is a generic entry point for sending commands to the plugin
 // DeviceNum: is the number of the device ( vera index )
 // command:  is the keyword for the command to call ( like SetPassword )
-// params: is an array of parameters to add 
+// params: is an array of parameters to add
 // RETURNS : the url
 //---------------------------------------------------------------------------
 function buildIPhoneHandlerUrl(deviceID,command,params)
@@ -1017,8 +1023,8 @@ function buildIPhoneHandlerUrl(deviceID,command,params)
 
 //-------------------------------------------------------------
 // Device Actions
-// if a cbfunc is passed, it will be called asynchronously when 
-// the ajax call returns successfull data. 
+// if a cbfunc is passed, it will be called asynchronously when
+// the ajax call returns successfull data.
 // in that case the function just rest "async"
 //
 // otherwise ( no cbfunc) the call is a synchronous GET
