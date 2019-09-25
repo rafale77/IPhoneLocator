@@ -24,7 +24,7 @@ local ETA_LATENCY = 30						-- ETA Latency, removes this from ETA to compensate 
 local MIN_SPEED = 5/3600					-- 5km/h (in km/s)
 local MIN_DISTANCE_GOOGLE = 0.15				-- do not call bing if it did not move since at least this distance
 local NOMOVE_SPEED = 60/3600				-- in km / s, when speed is null or <Min, taking this to calculate polling based on distance
-local MAP_URL = "http://maps.google.com/?q={0}@{1},{2}"	-- {0}:name {1}:lat {2}:long
+local MAP_URL = "https://dev.virtualearth.net/REST/v1/Imagery/Map/Road?pushpin={1},{2};;H&mapLayer=TrafficFlow"	-- {1}:lat {2}:long
 local ambiantLanguage = ""							-- Ambiant Language
 local DEFAULT_ROOT_PREFIX = "(*)"
 
@@ -574,8 +574,6 @@ function getAddressFromLatLong( lul_device, lat, long, language, prevlat, prevlo
 	url = addKeyToUrl(lul_device,url)
 	debug("Sending GET to Bing url:"..url)
 	local failed,content,httpcode = myHttps(url)	-- todo add Timeout
-	content = json.decode(content)
-  content = content.resourceSets[1].resources[1].name
 	debug("result failed:"..failed)
 	debug("result httpcode:"..httpcode)
 	debug("result content:"..content)
@@ -1115,9 +1113,7 @@ function getsetMapUrl(lul_device)
 	variables["1"]= (luup.variable_get(service,"CurLat", lul_device) or "")
 	variables["2"]= (luup.variable_get(service,"CurLong", lul_device) or "")
 	result = MAP_URL:mytemplate(variables)	-- variable substitution
-	-- if (key~="none") then
-		-- result = result .. "&key="..key
-	-- end
+  result = addKeyToUrl(lul_device,result)
 	debug("getsetMapUrl("..lul_device..") url="..result)
 
 	-- store result here as this is the only way to return value for the uPNP action ( at least it seems )
@@ -1242,9 +1238,8 @@ function forceRefresh(lul_device)
 								local res,obj = xpcall( function () local obj = json.decode(str) return obj end , log )
 								if (res==true) then
 								    if str ~= nil and str ~= "" then
---									if (obj.status=="OK") then  -- bing success
---										address=formatAddress(targetdevice,obj)
-                    address=str
+									if (obj.statusDescription=="OK") then  -- bing success
+                      address = content.resourceSets[1].resources[1].name
 									else
 										address="Bing returned an error"
 										debug("getAddressFromLatLong obj.status is not ok. json string was:"..str)
@@ -1254,6 +1249,7 @@ function forceRefresh(lul_device)
 									address="Invalid bing return format"
 									UserMessage(address)
 									log("Exception: json.decode("..str..") failed")
+									end
 								end
 							end
 						elseif (httpcode==-1) then	-- device did not move significantly
