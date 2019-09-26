@@ -1,5 +1,5 @@
 //# sourceURL=J_Phone.js
-// for dynamic loaded script to appear in google debugger
+// for dynamic loaded script to appear in Bing debugger
 var iphone_Svs = 'urn:upnp-org:serviceId:IPhoneLocator1';
 var googleMap_refresh = 4000;
 var ip_address = data_request_url;
@@ -88,7 +88,7 @@ var IPhoneLocator_Utils = (function() {
 })();
 
 //-------------------------------------------------------------
-// getGoogleMapKey(deviceID) returns the key or ""
+// get MapKey(deviceID) returns the key or ""
 //-------------------------------------------------------------
 function getGoogleMapKey( deviceID ) {
 	var root = IPhoneLocator_Utils.findRootDevice(deviceID);
@@ -96,6 +96,11 @@ function getGoogleMapKey( deviceID ) {
 	return key
 }
 
+function getSessionKey( deviceID ) {
+	var root = IPhoneLocator_Utils.findRootDevice(deviceID);
+	var key = get_device_state(root,  iphone_Svs, 'Sessionkey',1);
+	return key
+}
 //-------------------------------------------------------------
 // getDevicePollingMap(deviceID) returns an array of distances
 //-------------------------------------------------------------
@@ -127,19 +132,23 @@ function createPollingMap(home,base)
 	var idx=0;
 	var distances = getDevicePollingMap(home.deviceID);
 	jQuery.each( distances , function( key, value ) {
-		home.pollingMap[idx] = new google.maps.Circle({
-			center: base,
-			fillColor: 'Aqua',
-			fillOpacity: 0.2,
-			map: home.map,
-			radius:value*1000,
-			strokeColor: IPhoneLocator_Utils.rgb2hex(0,0,0),
-			strokeOpacity:1,
-			strokeWeight:1,
-			visible:jQuery( "#pollmap" )[0].checked
-		});
+		home.pollingMap[idx] = 	Microsoft.Maps.loadModule('Microsoft.Maps.HeatMap', function () {
+					var heatmap = new Microsoft.Maps.HeatMapLayer(base, {
+							intensity: 0.5,
+							opacity: 0.3,
+							radius: value*1000,
+							unit: 'meters',
+							visible:jQuery( "#pollmap" )[0].checked,
+							colorGradient: {
+									'0': 'blue',
+									'0.5': 'aqua',
+									'1': 'white'
+							},
+					});
+		      home.map.layers.insert(heatmap);
 		idx++;
-	});
+	  });
+  });
 	return home.pollingMap;
 }
 
@@ -181,12 +190,12 @@ function createChildrenMarkers(home,base)
 	var childrenmap = getChildrenInfoMap(home.deviceID);
 	home.children = new Array();
 	jQuery.each(childrenmap, function(key,value) {
-		home.children.push( new google.maps.Marker({
-			position: new google.maps.LatLng(value.lat, value.lng),
-			map: home.map,
-			title:value.phonename,
-			icon: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
-			visible:jQuery( "#showchild" )[0].checked
+		var pos = new Microsoft.Maps.Location(value.lat, value.lng);
+		home.children.push( new Microsoft.Maps.Pushpin(
+			pos,{
+				title:value.phonename,
+        color: 'blue',
+   			visible:jQuery( "#showchild" )[0].checked
 		}) );
 	});
 	return home.children;
@@ -196,10 +205,9 @@ function createChildrenMarkers(home,base)
 // Button Callbacks
 //-------------------------------------------------------------
 function centerToLocation(lat, lng){
-	var center = new google.maps.LatLng(lat, lng);
+	var ct = new Microsoft.Maps.Location(lat, lng);
 	var home = 	jQuery( "#map_canvas" ).data( "home");
-	var map = home.map;
-	map.panTo(center);
+	home.map.SetView({center: ct});
 };
 
 function setPollingMapVisibility(home, checked )
@@ -223,53 +231,54 @@ function showChildren(home, checked )
 //-------------------------------------------------------------
 function handleApiReady() {
 	// find context information
-	var deviceID = 6;
 	var home = 	jQuery("#map_canvas").data("home");
+	var deviceID = home.deviceID;
 	//NOTE to myself: window.clearInterval(interval);   can be used later on if needed
 
 	if (home.interval == null) {
 		var base = new Microsoft.Maps.Location(home.homelat,home.homelong);//(-34.397, 150.644);
 		var phone = new Microsoft.Maps.Location(home.curlat,home.curlong);//(-34.397, 150.644);
 		var sessionKey = "";
-		var map = new Microsoft.Maps.Map("#map_canvas", {
+	  home.map = new Microsoft.Maps.Map("#map_canvas", {
 		    center: base,
 		    mapTypeId: Microsoft.Maps.MapTypeId.aerial,
 		    zoom: 16
 		});
-		map.getCredentials(function(sessionKey){
+		home.map.getCredentials(function(sessionKey){
 		set_device_state(deviceID, iphone_Svs, "Sessionkey", sessionKey)
 	});
+		var basemarker = new Microsoft.Maps.Pushpin(
+			base,{
+			title:"Base",
+			text: 'H',
+			color: 'green',
+			draggable: true,
+		});
+    home.map.entities.push(basemarker);
 
-//		var basemarker = new google.maps.Marker({
-//			position: base,
-//			map: home.map,
-//			draggable:true,
-//			icon: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png',
-//			title:"Base"
-//		});
+		var phonemarker = new Microsoft.Maps.Pushpin(
+			phone,{
+			title:home.phonename,
+			text:'iPhone',
+			color:'red'
+		});
+    home.map.entities.push(phonemarker);
 
-//		var phonemarker = new google.maps.Marker({
-//			position: phone,
-//			map: home.map,
-//			icon: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
-//			title:home.phonename
-//		});
-
-//		google.maps.event.addListener(basemarker, 'dragend', function(evt) {
+		Microsoft.Maps.Events.addHandler(basemarker, 'dragend', function(evt) {
 			// find context
-//			var home = 	jQuery( "#map_canvas" ).data( "home");
+			var home = 	jQuery( "#map_canvas" ).data( "home");
 
 			// not strictly needed but for rigor
-//			home.homelat=evt.latLng.lat()
-//			home.homelong=evt.latLng.lng()
+			home.homelat=evt.Location.lat()
+			home.homelong=evt.Location.lng()
 
 			// save on the device and will light up the 'save' button
-//			iphone_SetFloat(home.deviceID , 'HomeLat', evt.latLng.lat());
-//			iphone_SetFloat(home.deviceID , 'HomeLong', evt.latLng.lng());
+			iphone_SetFloat(home.deviceID , 'HomeLat', evt.Location.lat());
+			iphone_SetFloat(home.deviceID , 'HomeLong', evt.Location.lng());
 
 			// update context
-//			jQuery( "#map_canvas" ).data( "home", home );
-//		});
+			jQuery( "#map_canvas" ).data( "home", home );
+		});
 
 //		home.range = new google.maps.Circle({
 //			center: base,
@@ -283,25 +292,25 @@ function handleApiReady() {
 //		home.range.setVisible( jQuery( "#range" )[0].checked );
 
 		// create polling map and associated circles
-//		createPollingMap(home,base);
-//		createChildrenMarkers(home,base);
+		createPollingMap(home,base);
+		createChildrenMarkers(home,base);
 
-//		home.interval = window.setInterval(function() {
+		home.interval = window.setInterval(function() {
 			// regular refresh, use dynamic mode in get_device_state
-//			var canvas = jQuery( "#map_canvas" );
-//			if (canvas.length>0) {
-//				var home = 	jQuery( "#map_canvas" ).data( "home");
-//				var deviceID = home.deviceID;
-//				var curlat = get_device_state(deviceID,  iphone_Svs, 'CurLat',1);
-//				var curlong= get_device_state(deviceID,  iphone_Svs, 'CurLong',1);
-//				var pos = new google.maps.LatLng(curlat, curlong);
+			var canvas = jQuery( "#map_canvas" );
+			if (canvas.length>0) {
+				var home = 	jQuery( "#map_canvas" ).data( "home");
+				var deviceID = home.deviceID;
+				var curlat = get_device_state(deviceID,  iphone_Svs, 'CurLat',1);
+				var curlong= get_device_state(deviceID,  iphone_Svs, 'CurLong',1);
+				var pos = new Microsoft.Maps.Location(curlat, curlong);
 
 				//home.range.setVisible( jQuery( "#range" ).checked );
-//				phonemarker.setPosition(pos);
-//				}
-//			},
+				phonemarker.setPosition(pos);
+				}
+			},
 //			googleMap_refresh
-//		);
+		);
 
 		// refresh context object
 		jQuery( "#map_canvas" ).data( "home", home );
@@ -309,7 +318,7 @@ function handleApiReady() {
 }
 
 //-------------------------------------------------------------
-// Trigger the loading of the google map code if needed
+// Trigger the loading of the Bing map code if needed
 //-------------------------------------------------------------
 function appendBootstrap(deviceID) {
 	if(typeof Microsoft === 'object' && typeof Microsoft.Maps === 'object'){
@@ -423,7 +432,6 @@ function iphone_Map(deviceID) {
 		centerToLocation(curlat,curlong);
 	});
 
-	// http://maps.google.com/?q=MY%20LOCATION@lat,long
 	//
 	jQuery( "#full_screen" ).click( function() {
 		var mapurl = get_device_state(deviceID,  iphone_Svs, 'MapUrl',1);
@@ -629,7 +637,7 @@ function iphone_Settings(deviceID) {
 		'<tr><td>IPhone Name:</td><td colspan="2">'+htmlnameselector+'</td></tr>';
 
 	var htmlPolling = '<tr><td id="iphone_periodTxt">Polling period:</td><td><input type="text" id="iphone_PollingBase" size=10 value="' +  period + '" onchange="iphone_SetInteger(' + deviceID + ', \'PollingBase\', this.value);">Dynamic:<input type="checkbox" name="auto" onclick="handleAutoCheckbox(' + deviceID + ', \'PollingAuto\', this);" value="auto" '+(auto=="1"?'checked':'')+'></td><td>(iCloud Polling period in sec, or 0 to disable)</td></tr>' +
-		'<tr><td>Distance Mode:</td><td>'+distancemodeselect+'</td><td>(use gps direct distance, or google map itinerary calculated distance)</td></tr>'+
+		'<tr><td>Distance Mode:</td><td>'+distancemodeselect+'</td><td>(use gps direct distance, or Bing map itinerary calculated distance)</td></tr>'+
 		'<tr><td id="iphone_dividerTxt">Polling Divider:</td><td><input  type="text" id="iphone_PollingDivider" size=10 value="' +  divider + '" onchange="iphone_SetPollingDivider(' + deviceID + ', \'PollingDivider\', this.value);"> </td><td>(Divider of the estimated time of arrival for polling)</td></tr>'+
 		'<tr><td id="iphone_mapTxt">Polling Map:</td><td><input  type="text" id="iphone_PollingMap" size=23 value="' +  pollingmap + '" onchange="iphone_SetPollingMap(' + deviceID + ', \'PollingMap\', this.value);"> </td><td>(Keep map empty for automatic polling calculation based on google reported ETA divided in chunks and Polling period at home. Or override for your own polling steps, based on a CSV set of distances like: dd:pp,dd:pp)</td></tr>' +
 		'<tr><td id="iphone_pollExtra">Extra Polling:</td><td><input type="checkbox" name="pollingextra" onclick="handleCheckbox(' + deviceID + ', \'PollingExtra\', this);" value="pollingextra" '+(pollingextra=="1"?'checked':'')+'></td><td>(Poll iCloud twice with a few second interval to get maximum precision)</td></tr>';
