@@ -224,32 +224,22 @@ function showChildren(home, checked )
 function handleApiReady() {
 	// find context information
 	var deviceID = 6;
-	var home = 	jQuery( "#map_canvas" ).data( "home");
-  var key = getGoogleMapKey(deviceID);
+	var home = 	jQuery("#map_canvas").data("home");
 	//NOTE to myself: window.clearInterval(interval);   can be used later on if needed
 
 	if (home.interval == null) {
-		var base = new google.maps.LatLng(home.homelat,home.homelong);//(-34.397, 150.644);
-		var phone = new google.maps.LatLng(home.curlat,home.curlong);//(-34.397, 150.644);
-		var sessionKey;
-		home.map = new Microsoft.Maps.Map('#map_canvas', {
-		    credentials: key,
-		    center: new Microsoft.Maps.Location(home.homelat,home.homelong),
+		var base = new Microsoft.Maps.Location(home.homelat,home.homelong);//(-34.397, 150.644);
+		var phone = new Microsoft.Maps.Location(home.curlat,home.curlong);//(-34.397, 150.644);
+		var sessionKey = "";
+		var map = new Microsoft.Maps.Map("#map_canvas", {
+		    center: base,
 		    mapTypeId: Microsoft.Maps.MapTypeId.aerial,
-		    zoom: 10
+		    zoom: 16
 		});
+		map.getCredentials(function(sessionKey){
+		set_device_state(deviceID, iphone_Svs, "Sessionkey", sessionKey)
+	});
 
-//	var myOptions = {
-//			zoom: 12,
-//			center: base,
-			// disableDefaultUI: true,
-//			panControl: true,
-//			zoomControl: true,
-//			mapTypeControl: true,
-			// mapTypeId: google.maps.MapTypeId.ROADMAP
-//		}
-
-//		home.map = new Microsoft.Maps.Map(document.getElementById("map_canvas"));
 //		var basemarker = new google.maps.Marker({
 //			position: base,
 //			map: home.map,
@@ -257,10 +247,7 @@ function handleApiReady() {
 //			icon: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png',
 //			title:"Base"
 //		});
-		home.map.getCredentials(function (c) {
-    	sessionKey = c;
-	    });
-		set_device_state(deviceID, iphone_Svs, "sessionkey", sessionKey);
+
 //		var phonemarker = new google.maps.Marker({
 //			position: phone,
 //			map: home.map,

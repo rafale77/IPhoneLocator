@@ -24,7 +24,7 @@ local ETA_LATENCY = 30						-- ETA Latency, removes this from ETA to compensate 
 local MIN_SPEED = 5/3600					-- 5km/h (in km/s)
 local MIN_DISTANCE_GOOGLE = 0.15				-- do not call bing if it did not move since at least this distance
 local NOMOVE_SPEED = 60/3600				-- in km / s, when speed is null or <Min, taking this to calculate polling based on distance
-local MAP_URL = "https://dev.virtualearth.net/REST/v1/Imagery/Map/Road?pushpin={1},{2};;H&mapLayer=TrafficFlow"	-- {1}:lat {2}:long
+local MAP_URL = "https://dev.virtualearth.net/REST/v1/Imagery/Map/Road?pushpin={1},{2};;P10&mapLayer=TrafficFlow"	-- {1}:lat {2}:long
 local ambiantLanguage = ""							-- Ambiant Language
 local DEFAULT_ROOT_PREFIX = "(*)"
 
@@ -433,6 +433,15 @@ function addKeyToUrl(lul_device,url)
 	return url
 end
 
+function addSKeyToUrl(lul_device,url)
+	local root_device = getRoot(lul_device)
+	local key = (luup.variable_get(service,"Sessionkey", root_device) or "none")
+	if (key~="none") and (key~="") then
+		url = url .. "&key="..key
+	end
+	return url
+end
+
 ------------------------------------------------
 -- HTTP Handlers
 ------------------------------------------------
@@ -571,15 +580,32 @@ function getAddressFromLatLong( lul_device, lat, long, language, prevlat, prevlo
 		end
 	end
 	local url = string.format("https://dev.virtualearth.net/REST/v1/Locations/%f,%f?",lat,long)
-	url = addKeyToUrl(lul_device,url)
+	url = addSKeyToUrl(lul_device,url)
 	debug("Sending GET to Bing url:"..url)
 	local failed,content,httpcode = myHttps(url)	-- todo add Timeout
 	debug("result failed:"..failed)
 	debug("result httpcode:"..httpcode)
 	debug("result content:"..content)
+	if (failed==0) then
+		-- "status" : "OVER_QUERY_LIMIT"
+		if ( string.find(content, "OVER_QUERY_LIMIT") ~= nil ) then
+			address="Bing Quota exceeded"
+			UserMessage(address)
+  	else
+	  local res,obj = xpcall( function () local obj = json.decode(content) return obj end , log )
+	  if (res==true) then
+		  if (obj.statusDescription=="OK") then  -- Bing success
+			  content = obj.resourceSets[1].resources[1].name
+      end
+		else
+			addresses[1]="Bing Addr returned an error"
+			UserMessage(addresses[1])
+			debug("getAddressFromLatLong statusDescription is not ok. json string was:"..content)
+			end
+	  end
+	end
 	return failed,content,httpcode
 end
-
 
 function getDistancesAddressesMatrix(lul_device,origins,destinations,distancemode,language)
 	debug("getDistancesAddressesMatrix")
@@ -590,7 +616,13 @@ function getDistancesAddressesMatrix(lul_device,origins,destinations,distancemod
 	local orgs = {}
 	local dests = {}
   if distancemode == "bicycling" then distancemode = "transit" end
-	for key,value in pairs(origins) do orgs[#orgs+1]=(value.lat..","..value.lon) end
+	for key,value in pairs(origins) do
+	  orgs[#orgs+1]=(value.lat..","..value.lon)
+		local prevlatitude = 0
+		local prevlongitude = 0
+		local fail,str,code = getAddressFromLatLong(lul_device, value.lat, value.lon, language, prevlatitude, prevlongitude)
+		addresses[#addresses+1] = str
+	end
 	for key,value in pairs(destinations) do dests[#dests+1]=(value.lat..","..value.lon) end
 	local url = string.format(
     "https://dev.virtualearth.net/REST/v1/Routes/DistanceMatrix?origins=%s&destinations=%s&travelMode=%s&timeUnit=second",
@@ -618,15 +650,14 @@ function getDistancesAddressesMatrix(lul_device,origins,destinations,distancemod
 						if (v.destinationIndex==0) then
 							distances[#distances+1] = v.travelDistance
 							durations[#durations+1] = v.travelDuration
-							addresses[#addresses+1] = "N/A in non direct mode"
 						end
 					end
 				else
-					addresses[1]="Bing returned an error"
+					addresses[1]="Bing distance returned an error"
 					UserMessage(addresses[1])
-					debug("getDistancesAddressesMatrix obj.status is not ok. json string was:"..content)
+					debug("getDistancesAddressesMatrix statusDescription is not ok. json string was:"..content)
 				end
-			else
+		else
 				-- pcall returned false
 				addresses[1]="Invalid bing return format"
 				UserMessage(addresses[1])
@@ -1165,6 +1196,7 @@ function forceRefresh(lul_device)
 			local devices={}
 			local timestamps={}
 			local batteryLevels={}
+			local address="undefined"
 			for key,value in pairs(devicemap) do
 				value.name = value.name:trim()
 				local devicename = deviceShouldBeReported(value.name,pattern)
@@ -1202,7 +1234,7 @@ function forceRefresh(lul_device)
 					distances[key],durations[key],
 					batteryLevels[key])
 			end
-		else
+	  else
 			-- distance mode == 'direct'
 			-- match it against the pattern matching defined by the user
 			for key,value in pairs(devicemap) do
@@ -1226,35 +1258,24 @@ function forceRefresh(lul_device)
 						if (prevlocation=="") or (prevlocation==PRIVACY_MODE) then
 							prevlatitude,prevlongitude = 0,0	-- force a call to bing to refresh address
 						end
-						local httpcode, str = getAddressFromLatLong(lul_device,device.location.latitude, device.location.longitude,language,prevlatitude,prevlongitude)
-						if (httpcode==0) then -- http success
-
+						local failed,str,code = getAddressFromLatLong(lul_device, device.location.latitude, device.location.longitude, language, prevlatitude, prevlongitude)
+						if (failed==0) then -- http success
 							-- "status" : "OVER_QUERY_LIMIT"
 							if ( string.find(str, "OVER_QUERY_LIMIT") ~= nil ) then
 								address="Bing Quota exceeded"
 								UserMessage("Bing Quota exceeded")
 							else
-								--local obj = json.decode(str) ==> can crash, call it in protected mode. Thx @sjolshagen for the hint !
-								local res,obj = xpcall( function () local obj = json.decode(str) return obj end , log )
-								if (res==true) then
-								    if str ~= nil and str ~= "" then
-									if (obj.statusDescription=="OK") then  -- bing success
-                      address = content.resourceSets[1].resources[1].name
-									else
-										address="Bing returned an error"
-										debug("getAddressFromLatLong obj.status is not ok. json string was:"..str)
-									end
-								else
-									-- pcall returned false
-									address="Invalid bing return format"
-									UserMessage(address)
-									log("Exception: json.decode("..str..") failed")
+
+								  if str ~= nil and str ~= "" then
+
+                      address = str
+
+							  			debug("getAddressFromLatLong obj.status is not ok. json string was:"..str)
 									end
 								end
-							end
-						elseif (httpcode==-1) then	-- device did not move significantly
+						elseif (failed==-1) then	-- device did not move significantly
 							debug("did not call bing, device did not move enough")
-							address=luup.variable_get(service, "Location", lul_device) or ""
+              address=luup.variable_get(service, "Location", lul_device) or ""
 						else
 							UserMessage("warning, could not find address from GPS coordinate")
 						end
