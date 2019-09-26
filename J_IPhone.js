@@ -1,7 +1,7 @@
 //# sourceURL=J_Phone.js
 // for dynamic loaded script to appear in Bing debugger
 var iphone_Svs = 'urn:upnp-org:serviceId:IPhoneLocator1';
-var googleMap_refresh = 4000;
+var BingMap_refresh = 4000;
 var ip_address = data_request_url;
 
 //-------------------------------------------------------------
@@ -127,28 +127,26 @@ function getDevicePollingMap(deviceID)
 // createPollingMap(home,base)
 // - home is the data context object saved for persistence
 //-------------------------------------------------------------
+
+
 function createPollingMap(home,base)
 {
 	var idx=0;
 	var distances = getDevicePollingMap(home.deviceID);
 	jQuery.each( distances , function( key, value ) {
-		home.pollingMap[idx] = 	Microsoft.Maps.loadModule('Microsoft.Maps.HeatMap', function () {
-					var heatmap = new Microsoft.Maps.HeatMapLayer(base, {
-							intensity: 0.5,
-							opacity: 0.3,
-							radius: value*1000,
-							unit: 'meters',
-							visible:jQuery( "#pollmap" )[0].checked,
-							colorGradient: {
-									'0': 'blue',
-									'0.5': 'aqua',
-									'1': 'white'
-							},
+		home.pollingMap[idx] = 	Microsoft.Maps.loadModule("Microsoft.Maps.SpatialMath", function () {
+			var circle = Microsoft.Maps.SpatialMath.getRegularPolygon(base,
+					value*1000,
+					360,
+					Microsoft.Maps.SpatialMath.Meters);
+					var poly = new Microsoft.Maps.Polygon(path,{
+						strokeColor: 'green',
+						visible:jQuery( "#pollmap" )[0].checked,
 					});
-		      home.map.layers.insert(heatmap);
+					home.map.entities.push(poly);
+					});
 		idx++;
 	  });
-  });
 	return home.pollingMap;
 }
 
@@ -225,7 +223,7 @@ function showChildren(home, checked )
 }
 
 //-------------------------------------------------------------
-// Boot Strap CB code to dynamically load & create google map
+// Boot Strap CB code to dynamically load & create Bing map
 // this method is called automatically when the script is
 // actually finished to be loaded
 //-------------------------------------------------------------
@@ -233,20 +231,19 @@ function handleApiReady() {
 	// find context information
 	var home = 	jQuery("#map_canvas").data("home");
 	var deviceID = home.deviceID;
-	//NOTE to myself: window.clearInterval(interval);   can be used later on if needed
-
-	if (home.interval == null) {
-		var base = new Microsoft.Maps.Location(home.homelat,home.homelong);//(-34.397, 150.644);
-		var phone = new Microsoft.Maps.Location(home.curlat,home.curlong);//(-34.397, 150.644);
-		var sessionKey = "";
-	  home.map = new Microsoft.Maps.Map("#map_canvas", {
-		    center: base,
-		    mapTypeId: Microsoft.Maps.MapTypeId.aerial,
-		    zoom: 16
-		});
-		home.map.getCredentials(function(sessionKey){
-		set_device_state(deviceID, iphone_Svs, "Sessionkey", sessionKey)
+  var base = new Microsoft.Maps.Location(home.homelat,home.homelong);
+	var sessionKey = "";
+	home.map = new Microsoft.Maps.Map("#map_canvas", {
+			center: base,
+			mapTypeId: Microsoft.Maps.MapTypeId.aerial,
+			zoom: 16
 	});
+	home.map.getCredentials(function(sessionKey){
+	set_device_state(deviceID, iphone_Svs, "Sessionkey", sessionKey)
+});
+	//NOTE to myself: window.clearInterval(interval);   can be used later on if needed
+	if (home.interval == null) {
+		var phone = new Microsoft.Maps.Location(home.curlat,home.curlong);//(-34.397, 150.644);
 		var basemarker = new Microsoft.Maps.Pushpin(
 			base,{
 			title:"Base",
@@ -280,15 +277,18 @@ function handleApiReady() {
 			jQuery( "#map_canvas" ).data( "home", home );
 		});
 
-//		home.range = new google.maps.Circle({
-//			center: base,
-//			fillColor: 'LightSkyBlue',
-//			fillOpacity: 0.2,
-//			map: home.map,
-//			radius:home.range*1000,
-//			strokeColor: 'MediumBlue',
-//			strokeOpacity:0.5
-//		});
+	 	Microsoft.Maps.loadModule("Microsoft.Maps.SpatialMath", function () {
+		                var path = Microsoft.Maps.SpatialMath.getRegularPolygon(base,
+											  home.range*1000,
+												360,
+												Microsoft.Maps.SpatialMath.Meters);
+		                var poly = new Microsoft.Maps.Polygon(path,{
+//											visible:jQuery( "#range" )[0].checked,
+											strokeColor: 'green'
+										});
+										home.map.entities.push(poly);
+		 });
+
 //		home.range.setVisible( jQuery( "#range" )[0].checked );
 
 		// create polling map and associated circles
@@ -309,7 +309,7 @@ function handleApiReady() {
 				phonemarker.setPosition(pos);
 				}
 			},
-//			googleMap_refresh
+			BingMap_refresh
 		);
 
 		// refresh context object
@@ -639,7 +639,7 @@ function iphone_Settings(deviceID) {
 	var htmlPolling = '<tr><td id="iphone_periodTxt">Polling period:</td><td><input type="text" id="iphone_PollingBase" size=10 value="' +  period + '" onchange="iphone_SetInteger(' + deviceID + ', \'PollingBase\', this.value);">Dynamic:<input type="checkbox" name="auto" onclick="handleAutoCheckbox(' + deviceID + ', \'PollingAuto\', this);" value="auto" '+(auto=="1"?'checked':'')+'></td><td>(iCloud Polling period in sec, or 0 to disable)</td></tr>' +
 		'<tr><td>Distance Mode:</td><td>'+distancemodeselect+'</td><td>(use gps direct distance, or Bing map itinerary calculated distance)</td></tr>'+
 		'<tr><td id="iphone_dividerTxt">Polling Divider:</td><td><input  type="text" id="iphone_PollingDivider" size=10 value="' +  divider + '" onchange="iphone_SetPollingDivider(' + deviceID + ', \'PollingDivider\', this.value);"> </td><td>(Divider of the estimated time of arrival for polling)</td></tr>'+
-		'<tr><td id="iphone_mapTxt">Polling Map:</td><td><input  type="text" id="iphone_PollingMap" size=23 value="' +  pollingmap + '" onchange="iphone_SetPollingMap(' + deviceID + ', \'PollingMap\', this.value);"> </td><td>(Keep map empty for automatic polling calculation based on google reported ETA divided in chunks and Polling period at home. Or override for your own polling steps, based on a CSV set of distances like: dd:pp,dd:pp)</td></tr>' +
+		'<tr><td id="iphone_mapTxt">Polling Map:</td><td><input  type="text" id="iphone_PollingMap" size=23 value="' +  pollingmap + '" onchange="iphone_SetPollingMap(' + deviceID + ', \'PollingMap\', this.value);"> </td><td>(Keep map empty for automatic polling calculation based on Bing reported ETA divided in chunks and Polling period at home. Or override for your own polling steps, based on a CSV set of distances like: dd:pp,dd:pp)</td></tr>' +
 		'<tr><td id="iphone_pollExtra">Extra Polling:</td><td><input type="checkbox" name="pollingextra" onclick="handleCheckbox(' + deviceID + ', \'PollingExtra\', this);" value="pollingextra" '+(pollingextra=="1"?'checked':'')+'></td><td>(Poll iCloud twice with a few second interval to get maximum precision)</td></tr>';
 
 	var htmlHome = ' <tr><td>Home Lat:</td><td><input type="text" id="iphone_HomeLat" size=23 value="' +  homelat +
