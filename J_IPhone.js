@@ -205,15 +205,8 @@ function createChildrenMarkers(home,base)
 function centerToLocation(lat, lng){
 	var ct = new Microsoft.Maps.Location(lat, lng);
 	var home = 	jQuery( "#map_canvas" ).data( "home");
-	home.map.SetView({center: ct});
+	home.map.setView({center: ct});
 };
-
-function setPollingMapVisibility(home, checked )
-{
-	jQuery.each( home.pollingMap , function( key, value ) {
-		value.setVisible( checked );
-	});
-}
 
 function showChildren(home, checked )
 {
@@ -277,40 +270,38 @@ function handleApiReady() {
 			jQuery( "#map_canvas" ).data( "home", home );
 		});
 
-	 	Microsoft.Maps.loadModule("Microsoft.Maps.SpatialMath", function () {
-		                var path = Microsoft.Maps.SpatialMath.getRegularPolygon(base,
-											  home.range*1000,
-												360,
-												Microsoft.Maps.SpatialMath.Meters);
-		                var poly = new Microsoft.Maps.Polygon(path,{
-//											visible:jQuery( "#range" )[0].checked,
-											strokeColor: 'green'
-										});
-										home.map.entities.push(poly);
+     Microsoft.Maps.loadModule("Microsoft.Maps.SpatialMath", function () {
+			 var home = 	jQuery( "#map_canvas" ).data( "home");
+	     var path = Microsoft.Maps.SpatialMath.getRegularPolygon(base,
+								  home.range*1000,
+									360,
+									Microsoft.Maps.SpatialMath.Meters);
+			 home.range = new Microsoft.Maps.Polygon(path,{
+														 visible: jQuery( "#range" )[0].checked,
+					 									 strokeColor: 'green'
+					 									 });
+			 home.map.entities.push(home.range);
 		 });
-
-//		home.range.setVisible( jQuery( "#range" )[0].checked );
 
 		// create polling map and associated circles
 		createPollingMap(home,base);
 		createChildrenMarkers(home,base);
 
 		home.interval = window.setInterval(function() {
-			// regular refresh, use dynamic mode in get_device_state
-			var canvas = jQuery( "#map_canvas" );
-			if (canvas.length>0) {
-				var home = 	jQuery( "#map_canvas" ).data( "home");
-				var deviceID = home.deviceID;
-				var curlat = get_device_state(deviceID,  iphone_Svs, 'CurLat',1);
-				var curlong= get_device_state(deviceID,  iphone_Svs, 'CurLong',1);
-				var pos = new Microsoft.Maps.Location(curlat, curlong);
+		 // regular refresh, use dynamic mode in get_device_state
+		 var canvas = jQuery( "#map_canvas" );
+		 if (canvas.length>0) {
+			 var home = 	jQuery( "#map_canvas" ).data( "home");
+			 var deviceID = home.deviceID;
+			 var curlat = get_device_state(deviceID,  iphone_Svs, 'CurLat',1);
+			 var curlong= get_device_state(deviceID,  iphone_Svs, 'CurLong',1);
+			 var pos = new Microsoft.Maps.Location(curlat, curlong);
+	 //		home.map.setView({center: pos});
+			 }
+		 },
+		 BingMap_refresh
+	 );
 
-				//home.range.setVisible( jQuery( "#range" ).checked );
-				phonemarker.setPosition(pos);
-				}
-			},
-			BingMap_refresh
-		);
 
 		// refresh context object
 		jQuery( "#map_canvas" ).data( "home", home );
@@ -411,12 +402,12 @@ function iphone_Map(deviceID) {
 
 	jQuery( "#range" ).change( function() {
 		var home = 	jQuery( "#map_canvas" ).data( "home");
-		home.range.setVisible( this.checked );
+  home.range.setOptions({visible: this.checked});
 	});
 
 	jQuery( "#pollmap" ).change( function() {
 		var home = 	jQuery( "#map_canvas" ).data( "home");
-		setPollingMapVisibility(home, this.checked );
+	  home.pollingMap.setOptions({visible: this.checked});
 	});
 
 	jQuery( "#showchild" ).change( function() {
