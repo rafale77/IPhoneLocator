@@ -24,7 +24,7 @@ local ETA_LATENCY = 30						-- ETA Latency, removes this from ETA to compensate 
 local MIN_SPEED = 5/3600					-- 5km/h (in km/s)
 local MIN_DISTANCE_GOOGLE = 0.15				-- do not call bing if it did not move since at least this distance
 local NOMOVE_SPEED = 60/3600				-- in km / s, when speed is null or <Min, taking this to calculate polling based on distance
-local MAP_URL = "https://dev.virtualearth.net/REST/v1/Imagery/Map/Road?pushpin={1},{2};;P10&mapLayer=TrafficFlow"	-- {1}:lat {2}:long
+local MAP_URL = "https://dev.virtualearth.net/REST/v1/Imagery/Map/Road?pushpin={1},{2};;H&mapLayer=TrafficFlow"	-- {1}:lat {2}:long
 local ambiantLanguage = ""							-- Ambiant Language
 local DEFAULT_ROOT_PREFIX = "(*)"
 
@@ -595,7 +595,11 @@ function getAddressFromLatLong( lul_device, lat, long, language, prevlat, prevlo
 	  local res,obj = xpcall( function () local obj = json.decode(content) return obj end , log )
 	  if (res==true) then
 		  if (obj.statusDescription=="OK") then  -- Bing success
+			  if obj.authenticationResultCode ~= "ValidCredentials" then
+				content = "Please click on Map to renew session key"
+				else
 			  content = obj.resourceSets[1].resources[1].name
+				end
       end
 		else
 			addresses[1]="Bing Addr returned an error"
@@ -958,7 +962,7 @@ function updateDevice(lul_device,location_obj,timestamp, address,opt_distance,op
 
 end
 
-function fillinVariablesFromGoogle(tbl)
+function fillinVariables(tbl)
 	local res={}
 	for key,value in pairs(tbl) do
 		res[ value.types[1] ] = value.long_name
@@ -969,7 +973,6 @@ end
 ------------------------------------------------
 -- formatAddress2(lul_device,address)
 -- json_obj is the return of bing for a request like
--- http://maps.googleapis.com/maps/api/geocode/json?latlng=44.22583333,4.777222222&sensor=false
 -- it takes a AddrFormat string from the device parameters
 -- and construct a final address accordingly
 ------------------------------------------------
@@ -985,7 +988,6 @@ end
 ------------------------------------------------
 -- formatAddress(lul_device,json_obj)
 -- json_obj is the return of bing for a request like
--- http://maps.googleapis.com/maps/api/geocode/json?latlng=44.22583333,4.777222222&sensor=false
 -- it takes a AddrFormat string from the device parameters
 -- and construct a final address accordingly
 ------------------------------------------------
@@ -1007,7 +1009,7 @@ function formatAddress(lul_device,json_obj)
 			-- user is choosing the new templatized address format
 			--
 			if (string.sub(addrFormat, 1, 1)=="~") then
-				local variables = fillinVariablesFromGoogle(tmp)
+				local variables = fillinVariables(tmp)
 				debug("Variables="..json.encode(variables))
 				result = addrFormat:mytemplate(variables)	-- variable substitution
 				result = result:sub(1-result:len())		-- all chars except first one ( the ~ )
@@ -1187,7 +1189,6 @@ function forceRefresh(lul_device)
 		end
 
 		if (#iCloudNames>0) and (distancemode~="direct") then
-			-- http://maps.googleapis.com/maps/api/distancematrix/json?origins=50.848714,4.351710|48.864999,2.316602&destinations=52.370989,4.895136&mode=driving&sensor=false
 			-- orings = pairs of lat|lon
 			-- destinations = pairs of lat|lon
 			-- Results are returned in rows, each row containing one origin paired with each destination.
@@ -1196,7 +1197,7 @@ function forceRefresh(lul_device)
 			local devices={}
 			local timestamps={}
 			local batteryLevels={}
-			local address="undefined"
+
 			for key,value in pairs(devicemap) do
 				value.name = value.name:trim()
 				local devicename = deviceShouldBeReported(value.name,pattern)
@@ -1265,11 +1266,8 @@ function forceRefresh(lul_device)
 								address="Bing Quota exceeded"
 								UserMessage("Bing Quota exceeded")
 							else
-
 								  if str ~= nil and str ~= "" then
-
                       address = str
-
 							  			debug("getAddressFromLatLong obj.status is not ok. json string was:"..str)
 									end
 								end
