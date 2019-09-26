@@ -589,25 +589,25 @@ function getAddressFromLatLong( lul_device, lat, long, language, prevlat, prevlo
 	if (failed==0) then
 		-- "status" : "OVER_QUERY_LIMIT"
 		if ( string.find(content, "OVER_QUERY_LIMIT") ~= nil ) then
-			address="Bing Quota exceeded"
-			UserMessage(address)
-  	else
-	  local res,obj = xpcall( function () local obj = json.decode(content) return obj end , log )
-	  if (res==true) then
-		  if (obj.statusDescription=="OK") then  -- Bing success
-			  if obj.authenticationResultCode ~= "ValidCredentials" then
-				content = "Please click on Map to renew session key"
-				else
-			  content = obj.resourceSets[1].resources[1].name
-				end
+			  address="Bing Quota exceeded"
+			  UserMessage(address)
+     	else
+    	  local res,obj = xpcall( function () local obj = json.decode(content) return obj end , log )
+	      if (res==true) then
+		        if (obj.statusDescription=="OK") then  -- Bing success
+			        content = obj.resourceSets[1].resources[1].name
+  		      elseif (obj.statusDescription == "Unauthorized") then
+	  	        content="Please Click the Map tab to renew session key"
+		          UserMessage(content)
+			        debug("getAddressFromLatLong statusDescription is not ok. json string was:"..content)
+		        else
+			        content="Bing Addr returned an error"
+			        UserMessage(content)
+			        debug("getAddressFromLatLong statusDescription is not ok. json string was:"..content)
+		        end
+	      end
       end
-		else
-			addresses[1]="Bing Addr returned an error"
-			UserMessage(addresses[1])
-			debug("getAddressFromLatLong statusDescription is not ok. json string was:"..content)
-			end
-	  end
-	end
+    end
 	return failed,content,httpcode
 end
 
