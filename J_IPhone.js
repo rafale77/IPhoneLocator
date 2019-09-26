@@ -211,7 +211,7 @@ function centerToLocation(lat, lng){
 function showChildren(home, checked )
 {
 	jQuery.each( home.children , function( key, value ) {
-		value.setVisible( checked );
+		value.setOptions({visible: checked );
 	});
 }
 
@@ -412,7 +412,7 @@ function iphone_Map(deviceID) {
 
 	jQuery( "#showchild" ).change( function() {
 		var home = 	jQuery( "#map_canvas" ).data( "home");
-		showChildren(home, this.checked );
+	  home.children.setOptions({visible: this.checked});
 	});
 
 	jQuery( "#center_home" ).click( function() {
