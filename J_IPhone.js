@@ -202,18 +202,24 @@ function createChildrenMarkers(home,base)
 //-------------------------------------------------------------
 // Button Callbacks
 //-------------------------------------------------------------
-function centerToLocation(lat, lng){
+function centerToLocation(lat, lng)
+{
 	var ct = new Microsoft.Maps.Location(lat, lng);
 	var home = 	jQuery( "#map_canvas" ).data( "home");
 	home.map.setView({center: ct});
 };
-
+function setPollingMapVisibility(home, checked )
+{
+	jQuery.each( home.pollingMap , function( key, value ) {
+		value.setOptions({visible: checked} );
+	});
+};
 function showChildren(home, checked )
 {
 	jQuery.each( home.children , function( key, value ) {
-		value.setOptions({visible: checked );
+		value.setOptions({visible: checked} );
 	});
-}
+};
 
 //-------------------------------------------------------------
 // Boot Strap CB code to dynamically load & create Bing map
@@ -407,12 +413,12 @@ function iphone_Map(deviceID) {
 
 	jQuery( "#pollmap" ).change( function() {
 		var home = 	jQuery( "#map_canvas" ).data( "home");
-	  home.pollingMap.setOptions({visible: this.checked});
+		setPollingMapVisibility(home, this.checked );
 	});
 
 	jQuery( "#showchild" ).change( function() {
 		var home = 	jQuery( "#map_canvas" ).data( "home");
-	  home.children.setOptions({visible: this.checked});
+	  showChildren(home, this.checked);
 	});
 
 	jQuery( "#center_home" ).click( function() {
