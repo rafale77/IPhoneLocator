@@ -13,7 +13,7 @@ local service = "urn:upnp-org:serviceId:IPhoneLocator1"
 local devicetype = "urn:schemas-upnp-org:device:IPhoneLocator:1"
 local UI7_JSON_FILE= "D_IPhone_UI7.json"
 local DEBUG_MODE = false
-local version = "v2.51b"
+local version = "v2.51h"
 local prefix = "child_"
 local PRIVACY_MODE = "Privacy mode"
 local RAND_DELAY = 4						-- random delay from period to avoid all devices going at the same time
@@ -22,7 +22,7 @@ local MIN_PERIOD = 10						-- poll cannot be less than this in sec
 local MAX_PERIOD = 3600						-- poll cannot be more than this in sec
 local ETA_LATENCY = 30						-- ETA Latency, removes this from ETA to compensate for iCloud latency
 local MIN_SPEED = 5/3600					-- 5km/h (in km/s)
-local MIN_DISTANCE_GOOGLE = 0.15				-- do not call bing if it did not move since at least this distance
+local MIN_DISTANCE = 0.15				-- do not call HERE if it did not move since at least this distance
 local NOMOVE_SPEED = 60/3600				-- in km / s, when speed is null or <Min, taking this to calculate polling based on distance
 local MAP_URL = "https://dev.virtualearth.net/REST/v1/Imagery/Map/Road?pushpin={1},{2};;H&mapLayer=TrafficFlow"	-- {1}:lat {2}:long
 local ambiantLanguage = ""							-- Ambiant Language
@@ -423,21 +423,12 @@ function getSpeed(lul_device)
 	return speed
 end
 
-
 function addKeyToUrl(lul_device,url)
 	local root_device = getRoot(lul_device)
-	local key = (luup.variable_get(service,"GoogleMapKey", root_device) or "none")
-	if (key~="none") and (key~="") then
-		url = url .. "&key="..key
-	end
-	return url
-end
-
-function addSKeyToUrl(lul_device,url)
-	local root_device = getRoot(lul_device)
-	local key = (luup.variable_get(service,"Sessionkey", root_device) or "none")
-	if (key~="none") and (key~="") then
-		url = url .. "&key="..key
+	local id = (luup.variable_get(service,"AppID", root_device) or "none")
+	local code = (luup.variable_get(service,"AppCode", root_device) or "none")
+	if (id~="none") and (id~="") then
+		url = url .. "&app_id=" .. id .. "&app_code" .. code
 	end
 	return url
 end
@@ -574,14 +565,14 @@ function getAddressFromLatLong( lul_device, lat, long, language, prevlat, prevlo
 	local lang = language or "en"
 	if (prevlat ~=nil) and (prevlong ~=nil) then
 		local distance = distanceBetween(lat, long, prevlat, prevlong, "Km")
-		if (distance < MIN_DISTANCE_GOOGLE) then
+		if (distance < MIN_DISTANCE) then
 			debug("device moved by a distance of km:"..distance)
 			return -1,""
 		end
 	end
-	local url = string.format("https://dev.virtualearth.net/REST/v1/Locations/%f,%f?",lat,long)
-	url = addSKeyToUrl(lul_device,url)
-	debug("Sending GET to Bing url:"..url)
+	local url = string.format("https://reverse.geocoder.api.here.com/6.2/reversegeocode.json?prox=%f,%f&mode=retrieveAddresses&maxresults=1&gen=9",lat,long)
+	url = addKeyToUrl(lul_device,url)
+	debug("Sending GET to HERE url:"..url)
 	local failed,content,httpcode = myHttps(url)	-- todo add Timeout
 	debug("result failed:"..failed)
 	debug("result httpcode:"..httpcode)
@@ -589,25 +580,19 @@ function getAddressFromLatLong( lul_device, lat, long, language, prevlat, prevlo
 	if (failed==0) then
 		-- "status" : "OVER_QUERY_LIMIT"
 		if ( string.find(content, "OVER_QUERY_LIMIT") ~= nil ) then
-			  address="Bing Quota exceeded"
+			  address="HERE Quota exceeded"
 			  UserMessage(address)
-     	else
+    else
     	  local res,obj = xpcall( function () local obj = json.decode(content) return obj end , log )
 	      if (res==true) then
-		        if (obj.statusDescription=="OK") then  -- Bing success
-			        content = obj.resourceSets[1].resources[1].name
-  		      elseif (obj.statusDescription == "Unauthorized") then
-	  	        content="Please Click the Map tab to renew session key"
-		          UserMessage(content)
-			        debug("getAddressFromLatLong statusDescription is not ok. json string was:"..content)
-		        else
-			        content="Bing Addr returned an error"
-			        UserMessage(content)
-			        debug("getAddressFromLatLong statusDescription is not ok. json string was:"..content)
-		        end
-	      end
-      end
+			     content = obj.response.Response.View[1].Result[1].Location.Address.Label
+        else
+			     content="HERE Addr returned an error"
+			     UserMessage(content)
+			     debug("getAddressFromLatLong statusDescription is not ok. json string was:"..content)
+		    end
     end
+	end
 	return failed,content,httpcode
 end
 
@@ -619,57 +604,54 @@ function getDistancesAddressesMatrix(lul_device,origins,destinations,distancemod
 	local durations={}
 	local orgs = {}
 	local dests = {}
-  if distancemode == "bicycling" then distancemode = "transit" end
 	for key,value in pairs(origins) do
-	  orgs[#orgs+1]=(value.lat..","..value.lon)
-		local prevlatitude = 0
-		local prevlongitude = 0
-		local fail,str,code = getAddressFromLatLong(lul_device, value.lat, value.lon, language, prevlatitude, prevlongitude)
-		addresses[#addresses+1] = str
+      orgs[#orgs+1]=(value.lat..","..value.lon)
 	end
 	for key,value in pairs(destinations) do dests[#dests+1]=(value.lat..","..value.lon) end
-	local url = string.format(
-    "https://dev.virtualearth.net/REST/v1/Routes/DistanceMatrix?origins=%s&destinations=%s&travelMode=%s&timeUnit=second",
-		table.concat(orgs,";"),
-		table.concat(dests,";"),
-		distancemode
-		)
-	url = addKeyToUrl(lul_device,url)
-	debug("Sending GET to Bing distance matrix url:"..url)
-	local failed,content,httpcode = myHttps(url)	-- todo add Timeout
-	debug("result failed:"..failed)
-	debug("result httpcode:"..httpcode)
-	debug("result content:"..content)
-	if (failed==0) then
-		-- "status" : "OVER_QUERY_LIMIT"
-		if ( string.find(content, "OVER_QUERY_LIMIT") ~= nil ) then
-			addresses[1]="Bing Quota exceeded"
-			UserMessage(addresses[1])
-		else
-			local res,obj = xpcall( function () local obj = json.decode(content) return obj end , log )
-			if (res==true) then
-				if (obj.statusDescription=="OK") then  -- Bing success
-					local results = obj.resourceSets[1].resources[1].results
-					for k,v in pairs (results) do
-						if (v.destinationIndex==0) then
-							distances[#distances+1] = v.travelDistance
-							durations[#durations+1] = v.travelDuration
-						end
-					end
-				else
-					addresses[1]="Bing distance returned an error"
-					UserMessage(addresses[1])
-					debug("getDistancesAddressesMatrix statusDescription is not ok. json string was:"..content)
-				end
-		else
-				-- pcall returned false
-				addresses[1]="Invalid bing return format"
-				UserMessage(addresses[1])
-				log("Exception: json.decode("..content..") failed")
+  if distancemode == "driving" then distancemode = "car" end
+	if distancemode == "walking" then distancemode = "pedestrian" end
+  if distancemode == "bicycling" then distancemode = "bicycle" end
+  local url = {}
+	for k,value in pairs(orgs) do
+	    url[k] = string.format(
+		      "https://route.api.here.com/routing/7.2/calculateroute.json?waypoint0=%s&waypoint1=%s&mode=fastest;%s;traffic:enabled",
+	      	value,
+		      table.concat(dests,"&"),
+		      distancemode
+		      )
+	    url[k] = url_encode(url)
+	    url[k] = addKeyToUrl(lul_device,url)
+	    debug("Sending GET to Here distance matrix url:"..url[k])
+	    local failed,content,httpcode = myHttps(url[k])	-- todo add Timeout
+	    debug("result failed:"..failed)
+	    debug("result httpcode:"..httpcode)
+	    debug("result content:"..content)
+	    if (failed==0) then
+		     -- "status" : "OVER_QUERY_LIMIT"
+		     if ( string.find(content, "OVER_QUERY_LIMIT") ~= nil ) then
+			   addresses[1]="Here Quota exceeded"
+			   UserMessage(addresses[1])
+		  else
+			   local res,obj = xpcall( function () local obj = json.decode(content) return obj end , log )
+			   if (res==true) then
+				    if (obj.statusDescription=="OK") then  -- Here success
+					    local results = obj.response.response.route[1].summary
+					    distances[k] = results.distance/1000
+					    durations[k] = results.travelTime
+							addresses[k] = response.response.route[1].waypoint[2].mappedRoadName
+				    else
+					    addresses[1]="HERE distance returned an error"
+					    UserMessage(addresses[1])
+					    debug("getDistancesAddressesMatrix statusDescription is not ok. json string was:"..content)
+				    end
+		     else
+				  -- pcall returned false
+				  addresses[1]="Invalid HERE return format"
+				  UserMessage(addresses[1])
+				  log("Exception: json.decode("..content..") failed")
 			end
 		end
-	end
-	return distances, durations, addresses
+		return distances, durations, addresses
 end
 
 function getAppleStage2(stage2server,username,commonheaders,pollingextra)
@@ -822,7 +804,7 @@ local function updateHouseMode(ui7)
 	end
 end
 
--- opt_distance is optional, it can be passed for precalculate distance ( bing distance matrix api for instance )
+-- opt_distance is optional, it can be passed for precalculate distance ( HERE distance matrix api for instance )
 -- if is null, the function will calculate the distance
 function updateDevice(lul_device,location_obj,timestamp, address,opt_distance,opt_duration,battery)
 	local lat,long = 0,0
@@ -972,7 +954,7 @@ end
 
 ------------------------------------------------
 -- formatAddress2(lul_device,address)
--- json_obj is the return of bing for a request like
+-- json_obj is the return of HERE for a request like
 -- it takes a AddrFormat string from the device parameters
 -- and construct a final address accordingly
 ------------------------------------------------
@@ -987,7 +969,7 @@ end
 
 ------------------------------------------------
 -- formatAddress(lul_device,json_obj)
--- json_obj is the return of bing for a request like
+-- json_obj is the return of HERE for a request like
 -- it takes a AddrFormat string from the device parameters
 -- and construct a final address accordingly
 ------------------------------------------------
@@ -1026,7 +1008,7 @@ function formatAddress(lul_device,json_obj)
 					else
 						pieces[i]="undef"
 					end
-					debug("Bing element idx:"..v.."/"..#tmp..", pieces["..i.."]="..pieces[i])
+					debug("HERE element idx:"..v.."/"..#tmp..", pieces["..i.."]="..pieces[i])
 				end
 				--debug("pieces:"..json.encode(pieces))
 				result=table.concat(pieces,", ")
@@ -1257,14 +1239,14 @@ function forceRefresh(lul_device)
 						local prevlongitude = luup.variable_get(service,"PrevLong", lul_device)
 						local prevlocation = luup.variable_get(service,"Location", lul_device) or ""
 						if (prevlocation=="") or (prevlocation==PRIVACY_MODE) then
-							prevlatitude,prevlongitude = 0,0	-- force a call to bing to refresh address
+							prevlatitude,prevlongitude = 0,0	-- force a call to HERE to refresh address
 						end
 						local failed,str,code = getAddressFromLatLong(lul_device, device.location.latitude, device.location.longitude, language, prevlatitude, prevlongitude)
 						if (failed==0) then -- http success
 							-- "status" : "OVER_QUERY_LIMIT"
 							if ( string.find(str, "OVER_QUERY_LIMIT") ~= nil ) then
-								address="Bing Quota exceeded"
-								UserMessage("Bing Quota exceeded")
+								address="HERE Quota exceeded"
+								UserMessage("HERE Quota exceeded")
 							else
 								  if str ~= nil and str ~= "" then
                       address = str
@@ -1272,7 +1254,7 @@ function forceRefresh(lul_device)
 									end
 								end
 						elseif (failed==-1) then	-- device did not move significantly
-							debug("did not call bing, device did not move enough")
+							debug("did not call HERE, device did not move enough")
               address=luup.variable_get(service, "Location", lul_device) or ""
 						else
 							UserMessage("warning, could not find address from GPS coordinate")
@@ -1627,9 +1609,9 @@ function startupDeferred(lul_device)
 		debug("UIlang="..lang)
 
 		getSetVariable(service, "RootPrefix", lul_device, "(*)")	-- by default, does not participate in HouseMode Calculation
-		local key = getSetVariable(service, "GoogleMapKey", lul_device, "none")	    -- new key needed for bing map API
-		if (key=="") then
-			luup.variable_get(service,"GoogleMapKey", "", lul_device)
+		local id = getSetVariable(service, "AppID", lul_device, "none")	    -- new key needed for Here map API
+		if (id=="") then
+			luup.variable_get(service,"AppID", "", lul_device)
 		end
 		local email = getSetVariable(service, "Email", lul_device, "noname@dot.com")
 
@@ -1836,9 +1818,11 @@ function initstatus(lul_device)
 	UserMessage("starting version "..version.." lul_device:"..lul_device)
 	checkVersion(lul_device)
 	local delay = 2	-- delaying first refresh by x seconds
-
 	if (getParent(lul_device)==0) then
 		debug("initstatus("..lul_device..") startup for Root device, delay:"..delay)
+    getSetVariable(service, "AppID", lul_device, "")
+    getSetVariable(service, "AppCode", lul_device, "")
+    getSetVariable(service, "APIkey", lul_device, "")
 	else
 		debug("initstatus("..lul_device..") startup for Child device, delay:"..delay)
 	end
