@@ -644,7 +644,10 @@ function getDistancesAddressesMatrix(lul_device,origins,destinations,distancemod
 				     log("Exception: json.decode("..content..") failed")
 			     end
 		     end
-		   end
+
+			 else
+			 addresses[k] = string.format("Error Message: %s", httpcode)
+  		end
 		end
 		return distances, durations, addresses
 end
@@ -1252,6 +1255,7 @@ function forceRefresh(lul_device)
 							debug("did not call HERE, device did not move enough")
               address=luup.variable_get(service, "Location", lul_device) or ""
 						else
+						  address=string.format("no GPS Coordinates, error message %s", code)
 							UserMessage("warning, could not find address from GPS coordinate")
 						end
 						updateDevice(targetdevice, device.location, device.location.timeStamp/1000, address,nil,nil,device.batteryLevel) --present
