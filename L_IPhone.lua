@@ -22,7 +22,7 @@ local MIN_PERIOD = 10						-- poll cannot be less than this in sec
 local MAX_PERIOD = 3600						-- poll cannot be more than this in sec
 local ETA_LATENCY = 30						-- ETA Latency, removes this from ETA to compensate for iCloud latency
 local MIN_SPEED = 5/3600					-- 5km/h (in km/s)
-local MIN_DISTANCE = 0.15				-- do not call HERE if it did not move since at least this distance
+local MIN_DISTANCE = 0.2				-- do not call HERE if it did not move since at least this distance
 local NOMOVE_SPEED = 60/3600				-- in km / s, when speed is null or <Min, taking this to calculate polling based on distance
 local MAP_URL = "https://dev.virtualearth.net/REST/v1/Imagery/Map/Road?pushpin={1},{2};;H&mapLayer=TrafficFlow"	-- {1}:lat {2}:long
 local ambiantLanguage = ""							-- Ambiant Language
@@ -428,7 +428,7 @@ function addKeyToUrl(lul_device,url)
 	local id = (luup.variable_get(service,"AppID", root_device) or "none")
 	local code = (luup.variable_get(service,"AppCode", root_device) or "none")
 	if (id~="none") and (id~="") then
-		url = url .. "&app_id=" .. id .. "&app_code" .. code
+		url = url .. "&app_id=" .. id .. "&app_code=" .. code
 	end
 	return url
 end
@@ -570,7 +570,8 @@ function getAddressFromLatLong( lul_device, lat, long, language, prevlat, prevlo
 			return -1,""
 		end
 	end
-	local url = string.format("https://reverse.geocoder.api.here.com/6.2/reversegeocode.json?prox=%f,%f&mode=retrieveAddresses&maxresults=1&gen=9",lat,long)
+	local coord = tostring(lat).."%2C"..tostring(long)
+	local url = string.format("https://reverse.geocoder.api.here.com/6.2/reversegeocode.json?prox=%s&mode=retrieveAddresses&maxresults=1&gen=9",coord)
 	url = addKeyToUrl(lul_device,url)
 	debug("Sending GET to HERE url:"..url)
 	local failed,content,httpcode = myHttps(url)	-- todo add Timeout
@@ -585,7 +586,7 @@ function getAddressFromLatLong( lul_device, lat, long, language, prevlat, prevlo
     else
     	  local res,obj = xpcall( function () local obj = json.decode(content) return obj end , log )
 	      if (res==true) then
-			     content = obj.response.Response.View[1].Result[1].Location.Address.Label
+			     content = obj.Response.View[1].Result[1].Location.Address.Label
         else
 			     content="HERE Addr returned an error"
 			     UserMessage(content)
@@ -604,23 +605,21 @@ function getDistancesAddressesMatrix(lul_device,origins,destinations,distancemod
 	local durations={}
 	local orgs = {}
 	local dests = {}
-	for key,value in pairs(origins) do
-      orgs[#orgs+1]=(value.lat..","..value.lon)
-	end
-	for key,value in pairs(destinations) do dests[#dests+1]=(value.lat..","..value.lon) end
-  if distancemode == "driving" then distancemode = "car" end
-	if distancemode == "walking" then distancemode = "pedestrian" end
-  if distancemode == "bicycling" then distancemode = "bicycle" end
+	for key,value in pairs(origins) do orgs[#orgs+1]=(value.lat.."%2C"..value.lon) end
+	for key,value in pairs(destinations) do dests[#dests+1]=(value.lat.."%2C"..value.lon) end
+  if distancemode == "driving" then distancemode = "%3Bcar%3B" end
+	if distancemode == "walking" then distancemode = "%3Bpedestrian%3B" end
+  if distancemode == "bicycling" then distancemode = "%3Bbicycle%3B" end
   local url = {}
 	for k,value in pairs(orgs) do
 	    url[k] = string.format(
-		      "https://route.api.here.com/routing/7.2/calculateroute.json?waypoint0=%s&waypoint1=%s&mode=fastest;%s;traffic:enabled",
+		      "https://route.api.here.com/routing/7.2/calculateroute.json?waypoint0=%s&waypoint1=%s&mode=fastest%s",
 	      	value,
-		      table.concat(dests,"&"),
+		      dests[1],
 		      distancemode
 		      )
-	    url[k] = url_encode(url)
-	    url[k] = addKeyToUrl(lul_device,url)
+			url[k] = url[k] .. "traffic%3Aenabled"
+	    url[k] = addKeyToUrl(lul_device,url[k])
 	    debug("Sending GET to Here distance matrix url:"..url[k])
 	    local failed,content,httpcode = myHttps(url[k])	-- todo add Timeout
 	    debug("result failed:"..failed)
@@ -629,27 +628,23 @@ function getDistancesAddressesMatrix(lul_device,origins,destinations,distancemod
 	    if (failed==0) then
 		     -- "status" : "OVER_QUERY_LIMIT"
 		     if ( string.find(content, "OVER_QUERY_LIMIT") ~= nil ) then
-			   addresses[1]="Here Quota exceeded"
-			   UserMessage(addresses[1])
-		  else
-			   local res,obj = xpcall( function () local obj = json.decode(content) return obj end , log )
-			   if (res==true) then
-				    if (obj.statusDescription=="OK") then  -- Here success
-					    local results = obj.response.response.route[1].summary
-					    distances[k] = results.distance/1000
-					    durations[k] = results.travelTime
-							addresses[k] = response.response.route[1].waypoint[2].mappedRoadName
-				    else
-					    addresses[1]="HERE distance returned an error"
-					    UserMessage(addresses[1])
-					    debug("getDistancesAddressesMatrix statusDescription is not ok. json string was:"..content)
-				    end
+			     addresses[1]="Here Quota exceeded"
+			     UserMessage(addresses[1])
 		     else
-				  -- pcall returned false
-				  addresses[1]="Invalid HERE return format"
-				  UserMessage(addresses[1])
-				  log("Exception: json.decode("..content..") failed")
-			end
+			     local res,obj = xpcall( function () local obj = json.decode(content) return obj end , log )
+			     if (res==true) then
+					     local results = obj.response.route[1].summary
+					     distances[k] = results.distance/1000
+					     durations[k] = results.travelTime
+							 addresses[k] = obj.response.route[1].waypoint[2].mappedRoadName
+		       else
+				     -- pcall returned false
+				     addresses[1]="Invalid HERE return format"
+				     UserMessage(addresses[1])
+				     log("Exception: json.decode("..content..") failed")
+			     end
+		     end
+		   end
 		end
 		return distances, durations, addresses
 end
@@ -1250,9 +1245,9 @@ function forceRefresh(lul_device)
 							else
 								  if str ~= nil and str ~= "" then
                       address = str
-							  			debug("getAddressFromLatLong obj.status is not ok. json string was:"..str)
+							  			debug("getAddressFromLatLong obj.status is ok. json string was:"..str)
 									end
-								end
+							end
 						elseif (failed==-1) then	-- device did not move significantly
 							debug("did not call HERE, device did not move enough")
               address=luup.variable_get(service, "Location", lul_device) or ""
