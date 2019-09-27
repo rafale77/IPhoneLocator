@@ -224,6 +224,7 @@ function handleApiReady() {
 	// find context information
 	var home = 	jQuery("#map_canvas").data("home");
 	var deviceID = home.deviceID;
+//	var key = getMapkey(deviceID);
   var id = getMapid(deviceID);
 	var code =getMapcode(deviceID);
 	var platform = new H.service.Platform({
@@ -382,7 +383,6 @@ function iphone_Map(deviceID) {
 	'</td>'+
 	'<td >					\
 	<div id="map_canvas">	\
-		map					\
 	</div>					\
 	</td></tr></table>';
 	set_panel_html(html);
