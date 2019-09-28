@@ -235,6 +235,7 @@ function handleApiReady() {
 	var defaultLayers = platform.createDefaultLayers()
   var base = new H.geo.Point(home.homelat,home.homelong);
 
+//  home.map = new H.Map('#map_canvas',
 	home.map = new H.Map(document.getElementById("map_canvas"),
 	defaultLayers.normal.map,{
 //  defaultLayers.vector.normal.map,{
@@ -243,49 +244,69 @@ function handleApiReady() {
   });
   window.addEventListener('resize', () => home.map.getViewPort().resize());
 	var behavior = new H.mapevents.Behavior(new H.mapevents.MapEvents(home.map));
-
+  var ui = H.ui.UI.createDefault(home.map, defaultLayers);
 	var phone = new H.geo.Point(home.curlat,home.curlong);
   home.range = new H.map.Circle(base,home.range*1000,{
 		visibility: jQuery( "#range" )[0].checked
 	});
+	var basemarker = new H.map.Marker(
+		base,{
+		volatility: true
+	});
+  basemarker.draggable = true
 
+	var phonemarker = new H.map.Marker(
+		phone,{
+	});
+
+	home.map.addObject(basemarker);
+	home.map.addObject(phonemarker);
   home.map.addObject(home.range)
+
+ function MakebaseDraggable(map, behavior, marker){
+    map.addEventListener('dragstart', function(ev) {
+	      var target = ev.target,
+	        pointer = ev.currentPointer;
+	      if (target instanceof H.map.Marker) {
+	      var targetPosition = map.geoToScreen(target.getGeometry());
+	      target['offset'] = new H.math.Point(pointer.viewportX - targetPosition.x, pointer.viewportY - targetPosition.y);
+	      behavior.disable();
+	      }
+	    }, false);
+
+ 	  map.addEventListener('dragend', function(ev) {
+      var target = ev.target,
+		  pointer = ev.currentPointer,
+      coord = map.screenToGeo(ev.currentPointer.viewportX,
+            ev.currentPointer.viewportY);
+      if (target instanceof H.map.Marker) {
+        behavior.enable();
+      }
+		  var home = 	jQuery( "#map_canvas" ).data( "home");
+
+		  // save on the device and will light up the 'save' button
+		  iphone_SetFloat(home.deviceID , 'HomeLat', coord.lat.toFixed(4));
+		  iphone_SetFloat(home.deviceID , 'HomeLong', coord.lng.toFixed(4));
+
+		  // update context
+	  	jQuery( "#map_canvas" ).data( "home", home );
+    }, false);
+
+	  map.addEventListener('drag', function(ev) {
+     var target = ev.target,
+	   pointer = ev.currentPointer;
+     if (target instanceof H.map.Marker) {
+	   target.setGeometry(map.screenToGeo(pointer.viewportX - target['offset'].x, pointer.viewportY - target['offset'].y));
+     }
+    }, false);
+  }
+  MakebaseDraggable(home.map, behavior, basemarker);
 	//NOTE to myself: window.clearInterval(interval);   can be used later on if needed
-	if (home.interval == null) {
-
-		var basemarker = new H.map.Marker(
-			base,{
-			volatility: true
-		});
-    home.map.addObject(basemarker);
-
-		var phonemarker = new H.map.Marker(
-			phone,{
-		});
-		home.map.addObject(phonemarker);
-
-    var mapevts= new H.mapevents.MapEvents(home.map);
-    basemarker.addEventListener('dragend', function(evt) {
-			// find context
-			var home = 	jQuery( "#map_canvas" ).data( "home");
-
-			// not strictly needed but for rigor
-			home.homelat=evt.Location.lat();
-			home.homelong=evt.Location.lng();
-
-			// save on the device and will light up the 'save' button
-			iphone_SetFloat(home.deviceID , 'HomeLat', evt.Location.lat());
-			iphone_SetFloat(home.deviceID , 'HomeLong', evt.Location.lng());
-
-			// update context
-			jQuery( "#map_canvas" ).data( "home", home );
-		});
-	}
+//	if (home.interval == null) {
 
 		// create polling map and associated circles
 		createPollingMap(home,base);
 		createChildrenMarkers(home,base);
-
 		home.interval = window.setInterval(function() {
 		 // regular refresh, use dynamic mode in get_device_state
 		 var canvas = jQuery( "#map_canvas" );
@@ -294,14 +315,12 @@ function handleApiReady() {
 			 var deviceID = home.deviceID;
 			 var curlat = get_device_state(deviceID,  iphone_Svs, 'CurLat',1);
 			 var curlong= get_device_state(deviceID,  iphone_Svs, 'CurLong',1);
-			 var pos = new H.Map.Point(curlat, curlong);
+			 var pos = new H.geo.Point(curlat, curlong);
 	 //		home.map.setView({center: pos});
 			 }
-		 },
+	 },
 		 HereMap_refresh
 	 );
-
-
 		// refresh context object
 		jQuery( "#map_canvas" ).data( "home", home );
 }
@@ -326,7 +345,7 @@ function appendcss(deviceID){
 	var link = document.createElement("link");
 	link.rel = "stylesheet";
 	link.type = "text/css";
-	link.href="//js.api.here.com/v3/3.0/mapsjs-ui.css?";
+	link.href="http://js.api.here.com/v3/3.0/mapsjs-ui.css?";
 	document.body.appendChild(link);
 }
 
@@ -385,6 +404,15 @@ function iphone_Map(deviceID) {
 	<div id="map_canvas">	\
 	</div>					\
 	</td></tr></table>';
+	appendcss(deviceID);
+	var source1 = "http://js.api.here.com/v3/3.0/mapsjs-core.js";
+	var source2 = "http://js.api.here.com/v3/3.0/mapsjs-service.js";
+	var source3 = "http://js.api.here.com/v3/3.0/mapsjs-ui.js";
+	var source4 = "http://js.api.here.com/v3/3.0/mapsjs-mapevents.js";
+	appendBootstrap(deviceID, source1);
+	appendBootstrap(deviceID, source2);
+	appendBootstrap(deviceID, source3);
+	appendBootstrap(deviceID, source4);
 	set_panel_html(html);
 	// addSaveButtonForMap( deviceID );
 	jQuery( "#map_canvas" ).data( "home", {
@@ -399,15 +427,6 @@ function iphone_Map(deviceID) {
 		pollingMap: [],	// array of distances
 		map: null
 		} );
-	appendcss(deviceID);
-	var source1 = "//js.api.here.com/v3/3.0/mapsjs-core.js";
-	var source2 = "//js.api.here.com/v3/3.0/mapsjs-service.js";
-	var source3 = "//js.api.here.com/v3/3.0/mapsjs-ui.js";
-	var source4 = "//js.api.here.com/v3/3.0/mapsjs-mapevents.js";
-	appendBootstrap(deviceID, source1);
-	appendBootstrap(deviceID, source2);
-	appendBootstrap(deviceID, source3);
-	appendBootstrap(deviceID, source4);
 	setTimeout("handleApiReady()", 500);
 	jQuery( "#range" ).change( function() {
 		var home = 	jQuery( "#map_canvas" ).data( "home");

@@ -636,7 +636,7 @@ function getDistancesAddressesMatrix(lul_device,origins,destinations,distancemod
 					     local results = obj.response.route[1].summary
 					     distances[k] = results.distance/1000
 					     durations[k] = results.travelTime
-							 addresses[k] = obj.response.route[1].waypoint[2].mappedRoadName
+							 addresses[k] = obj.response.route[1].waypoint[1].mappedRoadName
 		       else
 				     -- pcall returned false
 				     addresses[1]="Invalid HERE return format"
