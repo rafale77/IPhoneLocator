@@ -527,30 +527,12 @@ unit = the unit you desire for results
 			  'Nm' is nautical miles
 this function is from: GeoDataSource.com (C) All Rights Reserved 2013
  ]]
--- function distanceBetween(lat1, lon1, lat2, lon2, distance_unit)
-	-- local radlat1 = math.pi * lat1/180
-	-- local radlat2 = math.pi * lat2/180
-	-- local radlon1 = math.pi * lon1/180
-	-- local radlon2 = math.pi * lon2/180
-	-- local theta = lon1-lon2
-	-- local radtheta = math.pi * theta/180
-	-- local dist = math.sin(radlat1) * math.sin(radlat2) + math.cos(radlat1) * math.cos(radlat2) * math.cos(radtheta);
-	-- dist = math.acos(dist)
-	-- dist = dist * 180/math.pi
-	-- dist = dist * 60 * 1.1515
-	-- if distance_unit == "Km"  then
-		-- dist = dist * 1.609344
-	-- elseif (distance_unit == "Nm") then
-		-- dist = dist * 0.8684
-	-- end
-	-- return dist
--- end
--- Updated code from @duiffie , http://forum.micasaverde.com/index.php/topic,16907.msg136038.html#msg136038
+
 function distanceBetween(lat1, lon1, lat2, lon2, distance_unit)
         local dist
 		local R = 6378.137
-        local dLat = (lat2 - lat1) * math.pi / 180
-        local dLon = (lon2 - lon1) * math.pi / 180
+        local dLat = (tonumber(lat2) - tonumber(lat1)) * math.pi / 180
+        local dLon = (tonumber(lon2) - tonumber(lon1)) * math.pi / 180
         local a = math.sin(dLat/2) * math.sin(dLat/2) +
                 math.cos(lat1 * math.pi / 180) * math.cos(lat2 * math.pi / 180) *
                 math.sin(dLon/2) * math.sin(dLon/2)
@@ -600,12 +582,29 @@ end
 function getDistancesAddressesMatrix(lul_device,origins,destinations,distancemode,language)
 	debug("getDistancesAddressesMatrix")
 	local timeout = 30
+  local distance = 0
 	local distances={}
 	local addresses={}
 	local durations={}
 	local orgs = {}
 	local dests = {}
-	for key,value in pairs(origins) do orgs[#orgs+1]=(value.lat.."%2C"..value.lon) end
+	local prevlat = luup.variable_get(service,"PrevLat", lul_device)
+	local prevlong = luup.variable_get(service,"PrevLong", lul_device)
+
+	for key,value in pairs(origins) do orgs[#orgs+1]=(value.lat.."%2C"..value.lon)
+	  if (prevlat ~=nil) and (prevlong ~=nil) then
+		  distance = math.max(distanceBetween(value.lat, value.lon, prevlat, prevlong, "Km"),distance)
+	  end
+  end
+	if (distance < MIN_DISTANCE) and luup.variable_get(service, "Location", lul_device)~="" then
+	  for k,value in pairs(orgs) do
+			 distances[k]=luup.variable_get(service, "Distance", lul_device)
+			 durations[k]=luup.variable_get(service, "ETA", lul_device)
+			 addresses[k]=luup.variable_get(service, "Location", lul_device)
+		end
+		debug("devices moved by a max distance of km:"..distance)
+		return distances, durations, addresses
+  end
 	for key,value in pairs(destinations) do dests[#dests+1]=(value.lat.."%2C"..value.lon) end
   if distancemode == "driving" then distancemode = "%3Bcar%3B" end
 	if distancemode == "walking" then distancemode = "%3Bpedestrian%3B" end
