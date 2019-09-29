@@ -234,6 +234,8 @@ function handleApiReady() {
   });
 	var defaultLayers = platform.createDefaultLayers()
   var base = new H.geo.Point(home.homelat,home.homelong);
+	var iconH = new H.map.Icon('https://img.icons8.com/windows/32/000000/order-delivered.png');
+	var iconP = new H.map.Icon('https://img.icons8.com/color/26/000000/mac-os.png');
 
 //  home.map = new H.Map('#map_canvas',
 	home.map = new H.Map(document.getElementById("map_canvas"),
@@ -251,12 +253,13 @@ function handleApiReady() {
 	});
 	var basemarker = new H.map.Marker(
 		base,{
+		icon: iconH,
 		volatility: true
 	});
   basemarker.draggable = true
 
 	var phonemarker = new H.map.Marker(
-		phone,{
+		phone,{ icon: iconP
 	});
 
 	home.map.addObject(basemarker);
@@ -397,8 +400,8 @@ function iphone_Map(deviceID) {
 	<button id="full_screen" type="button" class="mapbutton">Full Screen</button>	\
 	<input id="range" type="checkbox" value="On">Range<br> \
 	<input id="pollmap" type="checkbox" value="On">Poll Map<br>'+showchildren+
-	'<div><img src="http://maps.google.com/mapfiles/ms/icons/green-dot.png" >Base</img></div>'+
-	'<div><img src="http://maps.google.com/mapfiles/ms/icons/red-dot.png" >iDevice(s)</img></div>'+
+	'<div><img src="https://img.icons8.com/windows/32/000000/order-delivered.png" >Base</img></div>'+
+	'<div><img src="https://img.icons8.com/color/26/000000/mac-os.png" >iDevice(s)</img></div>'+
 	'</td>'+
 	'<td >					\
 	<div id="map_canvas">	\
