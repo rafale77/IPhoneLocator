@@ -138,9 +138,12 @@ function createPollingMap(home,base)
 	var idx=0;
 	var distances = getDevicePollingMap(home.deviceID);
 	jQuery.each( distances , function( key, value ) {
-		home.pollingMap[idx] = new H.map.Circle(base,value*1000)
+		home.pollingMap[idx] = new H.map.Circle(base,value*1000,{
+			visibility: jQuery( "#pollmap" )[0].checked}
+		)
 		idx++;
 	  });
+
 	return home.pollingMap;
 }
 
@@ -185,9 +188,9 @@ function createChildrenMarkers(home,base)
 		var pos = new H.geo.Point(value.lat, value.lng);
 		home.children.push( new H.map.Marker(
 			pos,{
-				title:value.phonename,
-        color: 'blue',
-   			visible:jQuery( "#showchild" )[0].checked
+	//			title:value.phonename,
+  //      color: 'blue',
+   			visibility:jQuery( "#showchild" )[0].checked
 		}) );
 	});
 	return home.children;
@@ -202,18 +205,18 @@ function centerToLocation(lat, lng)
 	var home = 	jQuery( "#map_canvas" ).data( "home");
 	home.map.setCenter(ct,true);
 };
-function setPollingMapVisibility(home, checked )
-{
-	jQuery.each( home.pollingMap , function( key, value ) {
-		value.setVisibility(checked);
-	});
-};
-function showChildren(home, checked )
-{
-	jQuery.each( home.children , function( key, value ) {
-		value.setVisibility( checked );
-	});
-};
+//function setPollingMapVisibility(home, checked )
+//{
+//	jQuery.each( home.pollingMap , function( key, value ) {
+//		value.setVisibility(checked);
+//	});
+//};
+//function showChildren(home, checked )
+//{
+//	jQuery.each( home.children , function( key, value ) {
+//		value.setVisibility( checked );
+//	});
+//};
 
 //-------------------------------------------------------------
 // Boot Strap CB code to dynamically load & create HERE map
@@ -264,7 +267,13 @@ function handleApiReady() {
 
 	home.map.addObject(basemarker);
 	home.map.addObject(phonemarker);
-  home.map.addObject(home.range)
+  home.map.addObject(home.range);
+
+	// create polling map and associated circles and load the displays
+	createPollingMap(home,base);
+	createChildrenMarkers(home,base);
+	home.map.addObject(home.pollingMap);
+	home.map.addObject(home.children);
 
  function MakebaseDraggable(map, behavior, marker){
     map.addEventListener('dragstart', function(ev) {
@@ -305,11 +314,8 @@ function handleApiReady() {
   }
   MakebaseDraggable(home.map, behavior, basemarker);
 	//NOTE to myself: window.clearInterval(interval);   can be used later on if needed
-//	if (home.interval == null) {
+  //	if (home.interval == null) {
 
-		// create polling map and associated circles
-		createPollingMap(home,base);
-		createChildrenMarkers(home,base);
 		home.interval = window.setInterval(function() {
 		 // regular refresh, use dynamic mode in get_device_state
 		 var canvas = jQuery( "#map_canvas" );
@@ -431,19 +437,20 @@ function iphone_Map(deviceID) {
 		map: null
 		} );
 	setTimeout("handleApiReady()", 500);
+
 	jQuery( "#range" ).change( function() {
 		var home = 	jQuery( "#map_canvas" ).data( "home");
-  home.range.setVisibility(this.checked);
+    home.range.setVisibility(this.checked);
 	});
 
 	jQuery( "#pollmap" ).change( function() {
 		var home = 	jQuery( "#map_canvas" ).data( "home");
-		setPollingMapVisibility(home, this.checked );
+    home.pollingMap.setVisibility(this.checked);
 	});
 
 	jQuery( "#showchild" ).change( function() {
 		var home = 	jQuery( "#map_canvas" ).data( "home");
-	  showChildren(home, this.checked);
+    home.children.setVisibility(this.checked);
 	});
 
 	jQuery( "#center_home" ).click( function() {
