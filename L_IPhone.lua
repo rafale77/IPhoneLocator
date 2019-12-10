@@ -25,6 +25,7 @@ local MIN_SPEED = 5/3600					-- 5km/h (in km/s)
 local MIN_DISTANCE = 0.2				-- do not call HERE if it did not move since at least this distance
 local NOMOVE_SPEED = 60/3600				-- in km / s, when speed is null or <Min, taking this to calculate polling based on distance
 local MAP_URL = "https://dev.virtualearth.net/REST/v1/Imagery/Map/Road?pushpin={1},{2};;H&mapLayer=TrafficFlow"	-- {1}:lat {2}:long
+local defIconURL= "https://img.icons8.com/color/26/000000/mac-os.png"
 local ambiantLanguage = ""							-- Ambiant Language
 local DEFAULT_ROOT_PREFIX = "(*)"
 
@@ -1821,6 +1822,8 @@ function initstatus(lul_device)
     getSetVariable(service, "AppID", lul_device, "")
     getSetVariable(service, "AppCode", lul_device, "")
     getSetVariable(service, "APIkey", lul_device, "")
+    getSetVariable(service, "IconURL", lul_device,defIconURL)
+		
 	else
 		debug("initstatus("..lul_device..") startup for Child device, delay:"..delay)
 	end
