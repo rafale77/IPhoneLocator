@@ -3,7 +3,6 @@
 var iphone_Svs = 'urn:upnp-org:serviceId:IPhoneLocator1';
 var HereMap_refresh = 4000;
 var ip_address = data_request_url;
-var Hiconurl = 'https://img.icons8.com/windows/32/000000/order-delivered.png
 
 //-------------------------------------------------------------
 // Utilities Javascript
@@ -106,12 +105,6 @@ function getMapkey( deviceID ) {
 	var key = get_device_state(root,  iphone_Svs, 'APIkey',1);
 	return key
 };
-function getIconURL( deviceID ) {
-	var root = IPhoneLocator_Utils.findRootDevice(deviceID);
-	var key = get_device_state(root,  iphone_Svs, 'IconURL',1);
-	return iconURL
-};	    
-	    
 //-------------------------------------------------------------
 // getDevicePollingMap(deviceID) returns an array of distances
 //-------------------------------------------------------------
@@ -243,10 +236,9 @@ function handleApiReady() {
   'app_code': code
   });
 	var defaultLayers = platform.createDefaultLayers()
-        var base = new H.geo.Point(home.homelat,home.homelong);
-	var iconH = new H.map.Icon(Hiconurl);
-	var Piconurl = getIconURL(deviceID);
-	var iconP = new H.map.Icon(Piconurl);
+  var base = new H.geo.Point(home.homelat,home.homelong);
+	var iconH = new H.map.Icon('https://img.icons8.com/windows/32/000000/order-delivered.png');
+	var iconP = new H.map.Icon('https://img.icons8.com/color/26/000000/mac-os.png');
 
 //  home.map = new H.Map('#map_canvas',
 	home.map = new H.Map(document.getElementById("map_canvas"),
