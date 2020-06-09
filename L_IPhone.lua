@@ -13,7 +13,7 @@ local service = "urn:upnp-org:serviceId:IPhoneLocator1"
 local devicetype = "urn:schemas-upnp-org:device:IPhoneLocator:1"
 local UI7_JSON_FILE= "D_IPhone_UI7.json"
 local DEBUG_MODE = false
-local version = "v2.51h"
+local version = "v2.52h"
 local prefix = "child_"
 local PRIVACY_MODE = "Privacy mode"
 local RAND_DELAY = 4						-- random delay from period to avoid all devices going at the same time
@@ -915,7 +915,7 @@ function updateDevice(lul_device,location_obj,timestamp, address,opt_distance,op
 		if (privacymode==true) then
 			setVariableIfChanged(service, "Location", PRIVACY_MODE, lul_device)
 			setVariableIfChanged(service, "MsgText",string.format("Poll: %s",os.date("%F %R")) , lul_device)
-			setVariableIfChanged(service, "MsgText2","on "+os.date("%F %R",timestamp), lul_device)
+			setVariableIfChanged(service, "MsgText2", string.format("on %s",os.date("%F %R",timestamp)), lul_device)
 		else
 			setVariableIfChanged(service, "Location", address, lul_device)
 			setVariableIfChanged(service, "MsgText",string.format("Poll: %s",os.date("%F %R")) , lul_device)
