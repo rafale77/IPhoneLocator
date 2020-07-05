@@ -296,6 +296,7 @@ end
 function escapeQuotes( str )
 	return str:gsub("'", "\\'"):gsub("?", '\\%?'):gsub('"','\\"') -- escape quote characters
 end
+
 function escapePattern(str)
 	return escapeQuotes( str )
 end
@@ -566,16 +567,16 @@ function getAddressFromLatLong( lul_device, lat, long, language, prevlat, prevlo
 		if ( string.find(content, "OVER_QUERY_LIMIT") ~= nil ) then
 			  address="HERE Quota exceeded"
 			  UserMessage(address)
-    else
-    	  local res,obj = xpcall( function () local obj = json.decode(content) return obj end , log )
-	      if (res==true) then
+	        else
+    	        local res,obj = xpcall( function () local obj = json.decode(content) return obj end , log )
+	      		if (res==true) then
 			     content = obj.Response.View[1].Result[1].Location.Address.Label
-        else
+              		else
 			     content="HERE Addr returned an error"
 			     UserMessage(content)
 			     debug("getAddressFromLatLong statusDescription is not ok. json string was:"..content)
-		    end
-    end
+	      		end
+        	end
 	end
 	return failed,content,httpcode
 end
@@ -596,21 +597,21 @@ function getDistancesAddressesMatrix(lul_device,origins,destinations,distancemod
 	  if (prevlat ~=nil) and (prevlong ~=nil) then
 		  distance = math.max(distanceBetween(value.lat, value.lon, prevlat, prevlong, "Km"),distance)
 	  end
-  end
+  	end
 	if (distance < MIN_DISTANCE) and luup.variable_get(service, "Location", lul_device)~="" then
 	  for k,value in pairs(orgs) do
 			 distances[k]=luup.variable_get(service, "Distance", lul_device)
 			 durations[k]=luup.variable_get(service, "ETA", lul_device)
 			 addresses[k]=luup.variable_get(service, "Location", lul_device)
-		end
+	  end
 		debug("devices moved by a max distance of km:"..distance)
 		return distances, durations, addresses
-  end
+  	end
 	for key,value in pairs(destinations) do dests[#dests+1]=(value.lat.."%2C"..value.lon) end
-  if distancemode == "driving" then distancemode = "%3Bcar%3B" end
+  	if distancemode == "driving" then distancemode = "%3Bcar%3B" end
 	if distancemode == "walking" then distancemode = "%3Bpedestrian%3B" end
-  if distancemode == "bicycling" then distancemode = "%3Bbicycle%3B" end
-  local url = {}
+  	if distancemode == "bicycling" then distancemode = "%3Bbicycle%3B" end
+  	local url = {}
 	for k,value in pairs(orgs) do
 	    url[k] = string.format(
 		      "https://route.api.here.com/routing/7.2/calculateroute.json?waypoint0=%s&waypoint1=%s&mode=fastest%s",
@@ -637,7 +638,7 @@ function getDistancesAddressesMatrix(lul_device,origins,destinations,distancemod
 					     distances[k] = results.distance/1000
 					     durations[k] = results.travelTime
 							 addresses[k] = obj.response.route[1].waypoint[1].mappedRoadName
-		       else
+		       	     else
 				     -- pcall returned false
 				     addresses[1]="Invalid HERE return format"
 				     UserMessage(addresses[1])
@@ -645,11 +646,11 @@ function getDistancesAddressesMatrix(lul_device,origins,destinations,distancemod
 			     end
 		     end
 
-			 else
-			 addresses[k] = string.format("Error Message: %s", httpcode)
-  		end
-		end
-		return distances, durations, addresses
+	      else
+			addresses[k] = string.format("Error Message: %s", httpcode)
+  	      end
+	end
+	return distances, durations, addresses
 end
 
 function getAppleStage2(stage2server,username,commonheaders,pollingextra)
@@ -745,7 +746,7 @@ function getAppleDeviceMap(username, password, pollingextra)
 	else
 		UserMessage("failed to call fmipservice device",TASK_ERROR_PERM)
 	end
-  debug("***fmipmobile response =" .. json.encode({res=response,sta=status,hea=headers}) )
+  	debug("***fmipmobile response =" .. json.encode({res=response,sta=status,hea=headers}) )
 	return nil
 end
 
