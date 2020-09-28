@@ -1610,9 +1610,6 @@ function startupDeferred(lul_device)
 
 		getSetVariable(service, "RootPrefix", lul_device, "(*)")	-- by default, does not participate in HouseMode Calculation
 		local id = getSetVariable(service, "AppID", lul_device, "none")	    -- new key needed for Here map API
-		if (id=="") then
-			luup.variable_get(service,"AppID", "", lul_device)
-		end
 		local email = getSetVariable(service, "Email", lul_device, "noname@dot.com")
 
 		-- new with 1.57, encrypt password
