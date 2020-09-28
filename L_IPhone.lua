@@ -1628,9 +1628,6 @@ function startupDeferred(lul_device)
 
 		getSetVariable(service, "RootPrefix", lul_device, "(*)")	-- by default, does not participate in HouseMode Calculation
 		local key = getSetVariable(service, "GoogleMapKey", lul_device, "none")	    -- new key needed for bing map API
-		if (key=="") then
-			luup.variable_get(service,"GoogleMapKey", "", lul_device)
-		end
 		local email = getSetVariable(service, "Email", lul_device, "noname@dot.com")
 
 		-- new with 1.57, encrypt password
